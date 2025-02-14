@@ -4,13 +4,17 @@ import keyboard
 import panda_py
 import pickle
 import numpy as np
+import json
 
 import panda_py.controllers
 
 if len(sys.argv) != 3:
-    raise ValueError("Provide robot ip and robot port")
+    raise ValueError("Provide python3 follower.py <computer ip> <computer port>")
 
-follower_robot = panda_py.Panda('172.22.2.4')
+with open('teleop_params.config', 'r') as teleop_params:
+    config = json.load(teleop_params)
+
+follower_robot = panda_py.Panda(config['follower_robot_ip'])
 follower_robot.move_to_start()
 
 ROBOT_IP = sys.argv[1]
@@ -27,22 +31,12 @@ print('socket running')
 trqController = panda_py.controllers.AppliedTorque()
 follower_robot.start_controller(trqController)
 
-prev_error = [0] * 7
-time_step = 1 / 10 #4 is the frequency from the leader code
-
-def calc_torque(leader_data, follower_data, prev_error, time_step, K_p = [20, 20, 20, 20, 3, 3, 3], K_d = [1, 1, 1, 1, 0.5, 0.5, 0.5]):
+def calc_torque(leader_data, follower_data, K_p = [20, 15, 30, 20, 10, 4, 4], K_d = [0.7, 0.02, 0.7, 0.7, 0.3, 0.3, 0.3]):
     torques = [0, 0, 0, 0, 0, 0, 0]
 
     for i in range(7):
 
-        # error_p = leader_data[i] - follower_data[i]
-        # error_p_dot = (error_p - prev_error[i]) / time_step
-
-        # torques[i] = K_p[i] * error_p - K_d[i] * error_p_dot
-
-        # prev_error[i] = error_p
-
-        torques[i] = K_p[i] * (leader_data[i] - follower_data[i]) + K_d[i] * (leader_data[i+7])
+        torques[i] = K_p[i] * (leader_data[i] - follower_data[i]) + K_d[i] * (follower_data[i+7]) # T = Kp * (leader_pos - follower_pos) + Kd * (follower_velocity)
 
     torques = np.array(torques)
     return torques
@@ -50,23 +44,18 @@ def calc_torque(leader_data, follower_data, prev_error, time_step, K_p = [20, 20
 
 while True:
 
-    # if keyboard.is_pressed('q'):
-    #     print('Exiting...')
-    #     break
-
     #get leader data
     data, leader_addr = sock.recvfrom(1024)
     leader_data = pickle.loads(data)
-    # leader_data = leader_state.q + leader_state.dq
 
     #get follower data
     follower_state = follower_robot.get_state()
     follower_data = follower_state.q + follower_state.dq
 
-    torques = calc_torque(leader_data, follower_data, prev_error, time_step)
+    torques = calc_torque(leader_data, follower_data)
 
     trqController.set_control(torques)
 
     print(torques)
 
-sock.close()
+# sock.close()
