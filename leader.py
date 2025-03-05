@@ -24,10 +24,14 @@ frequency = config["message_frequency"] #messages per second
 # Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-print('socket running')
+print('Teleop leader running')
 
 while True:
-
+    
+    cmd = str(input("Enter Command...")).casefold()
+    if cmd == 'q':
+        break
+    
     leader_state = leader_robot.get_state()
     state_data = leader_state.q + leader_state.dq
     message = pickle.dumps(state_data)

@@ -1,6 +1,5 @@
 import socket
 import sys
-import keyboard
 import panda_py
 import pickle
 import numpy as np
@@ -41,8 +40,13 @@ def calc_torque(leader_data, follower_data, K_p = [20, 15, 30, 20, 10, 4, 4], K_
     torques = np.array(torques)
     return torques
 
+print('Teleop follower running')
 
 while True:
+    
+    cmd = str(input("Enter Command...")).casefold()
+    if cmd == 'q':
+        break
 
     #get leader data
     data, leader_addr = sock.recvfrom(1024)
