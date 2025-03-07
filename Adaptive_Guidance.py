@@ -1,5 +1,6 @@
 
 import panda_py
+import panda_py.controllers
 import json
 import threading
 import time
@@ -12,6 +13,11 @@ import ProMP_AdaptiveGuidance as ProMP_AdaptiveGuidance
 from ProMP_AdaptiveGuidance import ProMp
 from ProMP_AdaptiveGuidance import Learner
 import DTW
+
+from matplotlib import pyplot as plt
+from matplotlib.patches import Rectangle
+from copy import copy
+
 
 
 class KalmanFilter:
@@ -80,8 +86,8 @@ class TeleopControllerScheduler(threading.Thread):
         self.is_leader_control = isinstance(controller, LeaderController)
         self.is_follower_control = isinstance(controller, FollowerController)
 
-        if self.is_leader_control:
-            leader_robot.use_inv_dyn = use_inv_dyn #####find symilar property from panda_py
+        # if self.is_leader_control:
+        #     leader_robot.use_inv_dyn = use_inv_dyn #####find symilar property from panda_py
 
         self.controllerLock.release()
 
@@ -120,7 +126,7 @@ class TeleopControllerScheduler(threading.Thread):
                 
                 # Ensure master and slave joint positions are synchronized
                 leader_robot_state = leader_robot.get_state()
-                abs_joint_pos_diff = np.array(abs(leader_robot_state.q))
+                abs_joint_pos_diff = np.array(abs(np.array(leader_robot_state.q)))
                 j_pos_thres_deg = 10
                 j_pos_thres = np.ones(7,) * (j_pos_thres_deg * np.pi / 180)
                 j_pos_check = np.sum(np.multiply(np.greater(abs_joint_pos_diff, j_pos_thres), 1))
@@ -201,12 +207,115 @@ class TeleopControllerScheduler(threading.Thread):
                 follower_robot.nextStep()
                 self.controllerLock.release()
 
+    def compute_error(self, actual_positions, desired_positions):
+            if len(actual_positions) != len(desired_positions):
+                raise ValueError("Input lists must have the same length")
+            
+            #errors = [actual - desired for actual, desired in zip(actual_positions, desired_positions)]
+            errors = np.array(actual_positions) - np.array(desired_positions)
+            error_norm = np.linalg.norm(errors)
+            return error_norm
 
     def startControl(self):
         self.doControl = True
         self.start()
         self.star_time = time.time()
 
+    def stopControl(self):
+        self.doControl = False
+        self.join()
+        if self.is_leader_control and self.logging:
+            self.__log_data()
+
+    def start_logging(self):
+        if self.is_leader_control:
+            self.controllerLock.acquire()
+            self.controller.log_data.clear()
+            self.star_time = time.time()
+            print("Logging")
+            self.logging = True
+            self.controllerLock.release()
+
+    def stop_logging(self):
+        if self.is_leader_control and self.logging:
+            endtime = time.time()
+            self.controllerLock.acquire()
+            # calculate elapsed time till now as task_time
+            self.controller.log_data['task_time'].append(endtime - self.star_time)
+            self.__log_data()
+            self.logging = False
+            print("Saved Log")
+            self.controllerLock.release()
+    
+    def __log_data(self):
+        if self.is_leader_control and self.logging:
+
+            self.controller.log_data['power_mean'] = np.mean(self.controller.log_data['power'])
+
+            print("Average Power", self.controller.log_data['power_mean'])
+            self.controller.log_data['task_time'] = time.time() - self.star_time
+            print("Task Time", self.controller.log_data['task_time'])
+            self.controller.log_data['log_name'] = self.log_name
+            self.controller.log_data['fb_method'] = self.controller.fb_methods[self.fb_mode]
+            self.controller.log_data['trial_number'] = self.log_counter
+
+            # print(self.controller.operating_mode) # DEBUG
+            filename = self.log_name + self.controller.fb_methods[self.fb_mode] + str(self.log_counter)
+            json.dump(self.controller.log_data, open("./data/" + filename + ".json", 'w'))
+
+            # save graphs
+            self.__save_graph(data=self.controller.log_data['power'], title='Power', filename=filename + "_power")
+            self.__save_graph(data=np.array(self.controller.log_data['slave_c_pos'])[:, 2], title='Z axis motion',
+                              filename=filename + "_z_pos")
+            self.__save_graph(data=self.controller.log_data['slave_c_pos'], title='Task Path',
+                              filename=filename + "_path", obstacles=self.obstacle_plots)
+
+            self.controller.log_data.clear()
+            self.log_counter = self.log_counter + 1
+            self.logging = False
+
+    def __save_graph(self, data, filename, labels=None, title=None, obstacles=None):
+        fig = plt.figure()
+        ax = plt.gca()
+        if obstacles is not None:
+            # set task space as axis limits
+            ax.set_xlim([0.45, 0.75])
+            ax.set_ylim([-0.4, 0.35])
+            ax.set_aspect('equal', adjustable='box')
+            lines = plt.plot(np.array(data)[:, 0], np.array(data)[:, 1])
+            # patches artists are copies as one artist can only be used for one figure
+            for obs_rect in obstacles:
+                if isinstance(obs_rect, Rectangle):
+                    ax.add_patch(copy(obs_rect))
+
+            for plot_poly in self.hole_plots:
+                ax.add_patch(copy(plot_poly))
+
+            for plot_poly in self.puck_plots:
+                ax.add_patch(copy(plot_poly))
+            plt.legend(lines, ['Task Path'])
+            # plt.legend(obs, ['Obstacles'])
+
+        else:
+            lines = plt.plot(np.array(range(len(data))),
+                             np.array(data))
+            if labels is not None:
+                plt.legend(lines, labels)
+
+        if title is not None:
+            plt.title(title)
+        fig.savefig('./graphs/' + filename + '.png', bbox_inches='tight')
+        plt.close(fig)
+
+    def reset_position(self):
+        self.controllerLock.acquire()
+        if self.is_leader_control:
+            leader_robot.gotoJointPosition(self.default_position) ### Change default pos
+            if self.controller.operating_mode == 2:
+                self.controller.leader_history.clear()
+        elif self.is_follower_control:
+            leader_robot.gotoJointPosition(self.default_position) ### Change default pos
+        self.controllerLock.release()
 
 
 class LeaderController():
@@ -236,6 +345,8 @@ class LeaderController():
         self.pgain = 0.2 * np.array([600.0, 600.0, 600.0, 600.0, 100.0, 100.0, 20.0], dtype=np.float64)
         self.dgain = 0.15 * np.array([50.0, 50.0, 50.0, 50.0, 15.0, 15.0, 5.0], dtype=np.float64)
 
+        self.paramsLock = threading.Lock() ### My addition
+
 
     def initController(self, leader_robot, follower_robot):
 
@@ -245,8 +356,8 @@ class LeaderController():
         follower_robot_state = follower_robot.get_state()
 
         # initialise Kalman filter for both robots to get a filtered load value (after removing gravity and coriolis)
-        self.leader_load_filter = KalmanFilter(leader_robot_model.mass() - leader_robot_model.gravity() - leader_robot_model.coriolis())
-        self.follower_load_filter = KalmanFilter(follower_robot_model.mass() - follower_robot_model.gravity() - follower_robot_model.coriolis())
+        self.leader_load_filter = KalmanFilter(np.array(leader_robot_state.tau_J) - np.array(leader_robot_model.gravity(leader_robot_state)) - np.array(leader_robot_model.coriolis(leader_robot_state)))
+        self.follower_load_filter = KalmanFilter(np.array(follower_robot_state.tau_J) - np.array(follower_robot_model.gravity(follower_robot_state)) - np.array(follower_robot_model.coriolis(follower_robot_state)))
 
         self.leader_init_ts = leader_robot_state.time
         self.follower_init_ts = follower_robot_state.time
@@ -274,12 +385,6 @@ class LeaderController():
     
     def _positionfeedback(self, leader_robot, follower_robot):
         pass
-
-    def __assistance(self, master_robot):
-        mcurr_load = self.mload_filter.get_filtered(
-            master_robot.current_load - master_robot.gravity - master_robot.coriolis)
-        tau = self.guide_gain * mcurr_load
-        return tau, mcurr_load
     
     # modified sigmoid type function squishes values between -1 and 1 to 0 while maintaining the values
     # above and below. Used to filter out small values of forces/torques
@@ -288,7 +393,6 @@ class LeaderController():
             return x
         return x**3
     
-
     def _adaptivefeedback(self, leader_robot): #, slave_robot
 
         # The adaptive guidance ought to furnish a virtual fixture force (torque) 
@@ -306,15 +410,17 @@ class LeaderController():
         """
         global desired_pose, Forces, covariance_value
 
+        leader_robot_state = leader_robot.get_state()
+
         # Calculate desired pose using DTW
         guidance_gain = 0.01 * np.array([600, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
         tau_desired = np.zeros((7,))
-        adaptive_force = desired_pose - master_robot.current_j_pos
+        adaptive_force = desired_pose - leader_robot_state.q
 
         # Check if any element in covariance_value is greater than 0
         if any(value > 0 for value in covariance_value):
             # Calculate adaptive torque when at least one element in covariance_value is greater than 0
-            tau_adapt = (guidance_gain ) * covariance_value * adaptive_force - self.dgain * master_robot.current_j_vel # / covariance_value[0] 
+            tau_adapt = (guidance_gain ) * covariance_value * adaptive_force - self.dgain * leader_robot_state.dq # / covariance_value[0] 
             tau_adapt = self.__gainsquish(tau_adapt)
         else:
             # Handle the case when all elements in covariance_value are not greater than 0
@@ -331,8 +437,36 @@ class LeaderController():
         return tau_desired
     
 
+
 class FollowerController():
-    pass
+    
+    def __init__(self):
+        self.tau = np.zeros((7,))
+
+        # PD gains
+        self.pgain = 0.0003 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
+        self.dgain = 0.0003 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+
+        self.paramsLock = threading.Lock() ### My addition
+
+    def isFinished(self, leader_robot, follower_robot):
+        return False
+
+    def initController(self, leader_robot, follower_robot):
+        return
+    
+    def getControl(self, leader_robot, follower_robot):
+        self.paramsLock.acquire()
+        tau = self.__pdcontrol(leader_robot, follower_robot)
+        self.paramsLock.release()
+        return tau
+
+    def __pdcontrol(self, leader_robot, follower_robot):
+        leader_robot_state = leader_robot.get_state()
+        follower_robot_state  = follower_robot.get_state()
+        return self.pgain * (
+            np.array(leader_robot_state.q) - np.array(follower_robot_state.q)) - self.dgain * np.array(follower_robot_state.dq)
+
 
 
 # ProMP 
@@ -398,9 +532,20 @@ def get_trajectory(demonstrations, N_elements_per_demo):
     return trajectoriesList, timeList
 
 
-global promp_
-promp_ = ProMP()
-prompt_ = promp_[0:len(promp_):1, :, 0]
+def print_instructions():
+    print("(0) No force feedback")   
+    print("(1) Use virtual fixture force feedback")
+    print("(2) Use Torque sensor force feedback")
+    print("(3) Use position-position PD force feedback\n")
+    print("(L) Start Logging")
+    print("(P) End Logging")
+    print("(R) Reset Robot ")
+    print("(q) Exit")
+
+
+# global promp_
+# promp_ = ProMP()
+# prompt_ = promp_[0:len(promp_):1, :, 0]
 
 
 if  __name__ == "__main__":
@@ -413,6 +558,11 @@ if  __name__ == "__main__":
 
     follower_robot = panda_py.Panda(config['follower_robot_ip'])
     leader_robot = panda_py.Panda(config["leader_robot_ip"])
+    #Start the torque controllers for the robots
+    followerTrqController = panda_py.controllers.AppliedTorque()
+    follower_robot.start_controller(followerTrqController)
+    leaderTrqController = panda_py.controllers.AppliedTorque()
+    leader_robot.start_controller(leaderTrqController)
 
     print("====================\nROBOTS CONNECTED\n====================")
 
@@ -431,6 +581,32 @@ if  __name__ == "__main__":
     tc_follower.startControl()
     tc_leader.startControl()
     print("Teleoperation running")
+    print_instructions()
+
+    func_dispatch = {'l': tc_leader.start_logging,
+                     'p': tc_leader.stop_logging,
+                     'r': tc_leader.reset_position}
+    
+    while True:
+        cmd = str(input("Enter Command...")).casefold()
+        if cmd == 'q':
+            break
+        if cmd in func_dispatch:
+            func_dispatch[cmd]()
+            continue
+        try:
+            cmd = int(cmd)
+            if cmd in range(4):
+                tc_leader.set_feedback_mode(cmd)
+            else:
+                print("Wrong Command")
+                print_instructions()
+        except ValueError:
+            print("Wrong Command")
+            print_instructions()
+    
+    tc_leader.stopControl()
+    tc_follower.stopControl()
     
 
     
