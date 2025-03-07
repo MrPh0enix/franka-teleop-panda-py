@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import rospy, time
 import numpy as np
 import matplotlib.pyplot as plt
 import numpy.matlib as mat

@@ -94,6 +94,8 @@ class TeleopControllerScheduler(threading.Thread):
     def run(self):
         global leader_robot
         global follower_robot
+        global leaderTrqController
+        global followerTrqController
         global desired_pose, Forces, covariance_value
 
         desired_pose = np.zeros((7,)) ###HARD CODED 7
@@ -126,7 +128,8 @@ class TeleopControllerScheduler(threading.Thread):
                 
                 # Ensure master and slave joint positions are synchronized
                 leader_robot_state = leader_robot.get_state()
-                abs_joint_pos_diff = np.array(abs(np.array(leader_robot_state.q)))
+                follower_robot_state = follower_robot.get_state()
+                abs_joint_pos_diff = np.array(abs(np.array(leader_robot_state.q) - np.array(follower_robot_state.q)))
                 j_pos_thres_deg = 10
                 j_pos_thres = np.ones(7,) * (j_pos_thres_deg * np.pi / 180)
                 j_pos_check = np.sum(np.multiply(np.greater(abs_joint_pos_diff, j_pos_thres), 1))
@@ -159,7 +162,7 @@ class TeleopControllerScheduler(threading.Thread):
                             if error > error_threshold:
                                 assistance = ctrl_action
                             else:
-                                abs_joint_pos_diff = np.array(abs(leader_robot_state.q))
+                                abs_joint_pos_diff = np.array(abs(np.array(leader_robot_state.q) - np.array(follower_robot_state.q)))
                                 j_pos_thres_deg = 10
                                 j_pos_thres = np.ones(7,) * (j_pos_thres_deg * np.pi / 180)
                                 j_pos_check = np.sum(np.multiply(np.greater(abs_joint_pos_diff, j_pos_thres), 1))
@@ -175,20 +178,20 @@ class TeleopControllerScheduler(threading.Thread):
                         assistance = ctrl_action
                         print('Assistance for controller', assistance)
                         Command = assistance
-                        leader_robot.command = Command ### find comand in panda_py
-                        leader_robot.nextStep()
+                        leaderTrqController.set_control(Command) 
+                        # leader_robot.nextStep() ### find comand in panda_py
                     else:
                         print('No feedback mode available')
                         Command = np.zeros((7,))
-                        leader_robot.command = Command ### find comand in panda_py
-                        leader_robot.nextStep()
+                        leaderTrqController.set_control(Command) 
+                        # leader_robot.nextStep() ### find comand in panda_py
                         self.controller.fb_method == self.controller._nofeedback
                 
                 elif self.controller.fb_method == self.controller._nofeedback:
                     ext_tau_fb_gain = 0.9
                     ctrl_action = np.zeros((7,))
-                    leader_robot.command = ctrl_action ### find comand in panda_py
-                    leader_robot.nextStep()
+                    leaderTrqController.set_control(ctrl_action) 
+                    # leader_robot.nextStep() ### find comand in panda_py
                 
                 self.controllerLock.release()
         
@@ -200,11 +203,11 @@ class TeleopControllerScheduler(threading.Thread):
                     ctrl_action = self.controller.getControl(leader_robot, follower_robot)
                 else:
                     ctrl_action = np.zeros((7,))
-                follower_robot.command = ctrl_action ### find comand in panda_py
-                if follower_robot.counter % 50 == 0:
-                    follower_robot.set_gripper_width = leader_robot.gripper_width ### can probably deleto or find alternate function
+                followerTrqController.set_control(ctrl_action)  
+                # if follower_robot.counter % 50 == 0:
+                #     follower_robot.set_gripper_width = leader_robot.gripper_width ### can probably deleto or find alternate function
 
-                follower_robot.nextStep()
+                # follower_robot.nextStep() ### find comand in panda_py
                 self.controllerLock.release()
 
     def compute_error(self, actual_positions, desired_positions):
@@ -215,6 +218,21 @@ class TeleopControllerScheduler(threading.Thread):
             errors = np.array(actual_positions) - np.array(desired_positions)
             error_norm = np.linalg.norm(errors)
             return error_norm
+
+    def set_feedback_mode(self, mode):
+        if self.is_leader_control:
+            #self.controllerLock.acquire()
+            if self.logging:
+                # calculate elapsed time till now as task_time
+                self.controller.log_data['task_time'].append(time.time() - self.star_time)
+                self.__log_data()
+
+            leader_robot_state = leader_robot.get_state()
+            follower_robot_state = follower_robot.get_state()
+
+            self.fb_mode = mode
+            self.controller.set_feedback_mode(mode, leader_robot_state.time, follower_robot_state.time)
+            #self.controllerLock.release()
 
     def startControl(self):
         self.doControl = True
@@ -321,6 +339,7 @@ class TeleopControllerScheduler(threading.Thread):
 class LeaderController():
 
     def __init__(self):
+
         self.zerotau = np.zeros((7,))
         self.vfixts = []
 
@@ -368,12 +387,12 @@ class LeaderController():
     
 
     def getControl(self, leader_robot, follower_robot):
-        self.paramsLock.acquire() # where does this come from????
+        # self.paramsLock.acquire() # where does this come from????
 
         leader_robot_state = leader_robot.get_state()
         self.leader_history.append(leader_robot_state.q)
         tau = self.fb_method(leader_robot, follower_robot) # implement different fb methods later
-        self.paramsLock.release()
+        # self.paramsLock.release()
         return tau
     
     def _nofeedback(self, leader_robot, follower_robot):
@@ -436,18 +455,27 @@ class LeaderController():
 
         return tau_desired
     
+    def set_feedback_mode(self, mode, mts, sts):
+        self.paramsLock.acquire()
+        print("Set Control Method to ", self.fb_methods[mode])
+        self.fb_method = getattr(self, self.fb_methods[mode], self._nofeedback)
+        self.operating_mode = mode
+        self.master_init_ts = mts
+        self.slave_init_ts = sts
+        self.paramsLock.release()
 
 
 class FollowerController():
     
     def __init__(self):
+
         self.tau = np.zeros((7,))
 
         # PD gains
         self.pgain = 0.0003 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
         self.dgain = 0.0003 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
-        self.paramsLock = threading.Lock() ### My addition
+        # self.paramsLock = threading.Lock() ### My addition
 
     def isFinished(self, leader_robot, follower_robot):
         return False
@@ -456,9 +484,9 @@ class FollowerController():
         return
     
     def getControl(self, leader_robot, follower_robot):
-        self.paramsLock.acquire()
+        # self.paramsLock.acquire()
         tau = self.__pdcontrol(leader_robot, follower_robot)
-        self.paramsLock.release()
+        # self.paramsLock.release()
         return tau
 
     def __pdcontrol(self, leader_robot, follower_robot):
@@ -552,12 +580,15 @@ if  __name__ == "__main__":
 
     global leader_robot
     global follower_robot
+    global followerTrqController
+    global leaderTrqController
 
     with open('teleop_params.config', 'r') as teleop_params:
         config = json.load(teleop_params)
 
     follower_robot = panda_py.Panda(config['follower_robot_ip'])
     leader_robot = panda_py.Panda(config["leader_robot_ip"])
+    # leader_robot.teaching_mode(active = True)
     #Start the torque controllers for the robots
     followerTrqController = panda_py.controllers.AppliedTorque()
     follower_robot.start_controller(followerTrqController)

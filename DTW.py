@@ -165,7 +165,7 @@ def DtW(real_time_joint_angles, teleo_guidance_gain):
 
         corresponding_iterations.append(corresponding_iteration)
 
-    print('corresponding_iterations',corresponding_iterations)
+    # print('corresponding_iterations',corresponding_iterations)
 
     # Calculate Virtual Fixture Forces
 
