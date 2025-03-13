@@ -5,8 +5,8 @@ import panda_py
 import pickle
 import json
 
-if len(sys.argv) != 4:
-    raise ValueError("Provide robot ip, follower ip and follower port")
+if len(sys.argv) != 3:
+    raise ValueError("Provide follower ip and follower port")
 
 with open('teleop_params.config', 'r') as teleop_params:
     config = json.load(teleop_params)
@@ -15,9 +15,9 @@ leader_robot = panda_py.Panda(config["leader_robot_ip"])
 leader_robot.move_to_start()
 leader_robot.teaching_mode(active = True)
 
-ROBOT_IP = sys.argv[1]
-FOLLOWER_IP = sys.argv[2]
-FOLLOWER_PORT = int(sys.argv[3])
+FOLLOWER_IP = sys.argv[1]
+FOLLOWER_PORT = int(sys.argv[2])
+print(FOLLOWER_IP, FOLLOWER_PORT)
 
 frequency = config["message_frequency"] #messages per second
 
@@ -27,10 +27,6 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 print('Teleop leader running')
 
 while True:
-    
-    cmd = str(input("Enter Command...")).casefold()
-    if cmd == 'q':
-        break
     
     leader_state = leader_robot.get_state()
     state_data = leader_state.q + leader_state.dq

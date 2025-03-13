@@ -110,10 +110,10 @@ class TeleopControllerScheduler(threading.Thread):
         time_step = 1.0 / control_frequency
         error_threshold = 0.08  # Set your desired error threshold here
 
-        self.controllerLock.acquire()
-        if self.controller is not None:
-            self.controller.initController(leader_robot, follower_robot)
-        self.controllerLock.release()
+        # self.controllerLock.acquire()
+        # if self.controller is not None:
+        #     self.controller.initController(leader_robot, follower_robot)
+        # self.controllerLock.release()
         called_already = False # Initialize called_already here
 
         if self.is_leader_control:
@@ -138,7 +138,7 @@ class TeleopControllerScheduler(threading.Thread):
                     ctrl_action = np.zeros((7,)) ###HARD CODED 7
                     print('Master & Slave out of sync - Please slow down')
 
-                # Subtract the leader external torque sensor value for smoother zero torque leader operation
+                #Subtract the leader external torque sensor value for smoother zero torque leader operation
                 fb_gain = 0.3 * np.array([600, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
                 current_pose = np.array([leader_robot_state.q])
                 Forces, desired_pose, covariance_value = DTW.DtW(current_pose, fb_gain)
@@ -148,67 +148,78 @@ class TeleopControllerScheduler(threading.Thread):
                 if Error > 0.1:
                     called_already = False # Set called_already to False
                 if self.controller.fb_method == self.controller._adaptivefeedback:
-                    # Simulate current robot position and error computation
-                    error = np.linalg.norm(current_pose - desired_pose)
-                    if not called_already:
-                        num_steps = 1
-                        iteration = 0
-                        while iteration < num_steps:
-                            # Simulate trajectory generator and control action
-                            trajectory_generator = self.controller.getControl(leader_robot, follower_robot) ##Added follower robot which wasnt in original
-                            ctrl_action = trajectory_generator
-                            error_threshold = 0.2
+                    pass
+                #     # Simulate current robot position and error computation
+                #     error = np.linalg.norm(current_pose - desired_pose)
+                #     if not called_already:
+                #         num_steps = 1
+                #         iteration = 0
+                #         while iteration < num_steps:
+                #             # Simulate trajectory generator and control action
+                #             trajectory_generator = self.controller.getControl(leader_robot, follower_robot) ##Added follower robot which wasnt in original
+                #             ctrl_action = trajectory_generator
+                #             error_threshold = 0.2
 
-                            if error > error_threshold:
-                                assistance = ctrl_action
-                            else:
-                                abs_joint_pos_diff = np.array(abs(np.array(leader_robot_state.q) - np.array(follower_robot_state.q)))
-                                j_pos_thres_deg = 10
-                                j_pos_thres = np.ones(7,) * (j_pos_thres_deg * np.pi / 180)
-                                j_pos_check = np.sum(np.multiply(np.greater(abs_joint_pos_diff, j_pos_thres), 1))
+                #             if error > error_threshold:
+                #                 assistance = ctrl_action
+                #             else:
+                #                 abs_joint_pos_diff = np.array(abs(np.array(leader_robot_state.q) - np.array(follower_robot_state.q)))
+                #                 j_pos_thres_deg = 10
+                #                 j_pos_thres = np.ones(7,) * (j_pos_thres_deg * np.pi / 180)
+                #                 j_pos_check = np.sum(np.multiply(np.greater(abs_joint_pos_diff, j_pos_thres), 1))
 
-                                if j_pos_check:
-                                    ctrl_action = np.zeros((7,))
-                                    print('Master & Slave out of sync - Please slow down') ## Added myself
-                                assistance = ctrl_action
+                #                 if j_pos_check:
+                #                     ctrl_action = np.zeros((7,))
+                #                     print('Master & Slave out of sync - Please slow down') ## Added myself
+                #                 assistance = ctrl_action
                             
-                            iteration += 1
-                        print("Adaptive guidance feedback enabled for controller")
-                        ext_tau_fb_gain = 0.9
-                        assistance = ctrl_action
-                        print('Assistance for controller', assistance)
-                        Command = assistance
-                        leaderTrqController.set_control(Command) 
-                        # leader_robot.nextStep() ### find comand in panda_py
-                    else:
-                        print('No feedback mode available')
-                        Command = np.zeros((7,))
-                        leaderTrqController.set_control(Command) 
-                        # leader_robot.nextStep() ### find comand in panda_py
-                        self.controller.fb_method == self.controller._nofeedback
+                #             iteration += 1
+                #         print("Adaptive guidance feedback enabled for controller")
+                #         ext_tau_fb_gain = 0.9
+                #         assistance = ctrl_action
+                #         print('Assistance for controller', assistance)
+                #         Command = assistance
+                #         leaderTrqController.set_control(Command) 
+                #         # leader_robot.nextStep() ### find comand in panda_py
+                #     else:
+                #         print('No feedback mode available')
+                #         Command = np.zeros((7,))
+                #         leaderTrqController.set_control(Command) 
+                #         # leader_robot.nextStep() ### find comand in panda_py
+                #         self.controller.fb_method == self.controller._nofeedback
                 
-                elif self.controller.fb_method == self.controller._nofeedback:
-                    ext_tau_fb_gain = 0.9
-                    ctrl_action = np.zeros((7,))
-                    leaderTrqController.set_control(ctrl_action) 
-                    # leader_robot.nextStep() ### find comand in panda_py
+                # elif self.controller.fb_method == self.controller._nofeedback:
+                #     ext_tau_fb_gain = 0.9
+                #     ctrl_action = np.zeros((7,))
+                #     leaderTrqController.set_control(ctrl_action) 
+                #     # leader_robot.nextStep() ### find comand in panda_py
                 
                 self.controllerLock.release()
-        
+                
+                time.sleep(time_step)
+
+
         elif self.is_follower_control: # might conflict with leader control check setController, but might not since its set to _pd control
+            
             while self.doControl:
                 self.controllerLock.acquire()
+
                 # master_robot.nextStep()
                 if (self.controller):
                     ctrl_action = self.controller.getControl(leader_robot, follower_robot)
                 else:
                     ctrl_action = np.zeros((7,))
+
                 followerTrqController.set_control(ctrl_action)  
                 # if follower_robot.counter % 50 == 0:
                 #     follower_robot.set_gripper_width = leader_robot.gripper_width ### can probably deleto or find alternate function
 
                 # follower_robot.nextStep() ### find comand in panda_py
                 self.controllerLock.release()
+
+                time.sleep(time_step)
+
+
 
     def compute_error(self, actual_positions, desired_positions):
             if len(actual_positions) != len(desired_positions):
@@ -472,8 +483,8 @@ class FollowerController():
         self.tau = np.zeros((7,))
 
         # PD gains
-        self.pgain = 0.0003 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
-        self.dgain = 0.0003 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+        self.pgain = 0.03 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
+        self.dgain = 0.03 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
         # self.paramsLock = threading.Lock() ### My addition
 
@@ -492,8 +503,7 @@ class FollowerController():
     def __pdcontrol(self, leader_robot, follower_robot):
         leader_robot_state = leader_robot.get_state()
         follower_robot_state  = follower_robot.get_state()
-        return self.pgain * (
-            np.array(leader_robot_state.q) - np.array(follower_robot_state.q)) - self.dgain * np.array(follower_robot_state.dq)
+        return self.pgain * (np.array(leader_robot_state.q) - np.array(follower_robot_state.q)) - self.dgain * np.array(follower_robot_state.dq)
 
 
 
@@ -588,7 +598,11 @@ if  __name__ == "__main__":
 
     follower_robot = panda_py.Panda(config['follower_robot_ip'])
     leader_robot = panda_py.Panda(config["leader_robot_ip"])
-    # leader_robot.teaching_mode(active = True)
+
+    #move leader to follower position
+    fol_state = follower_robot.get_state()
+    leader_robot.move_to_joint_position(fol_state.q)
+
     #Start the torque controllers for the robots
     followerTrqController = panda_py.controllers.AppliedTorque()
     follower_robot.start_controller(followerTrqController)
@@ -596,10 +610,6 @@ if  __name__ == "__main__":
     leader_robot.start_controller(leaderTrqController)
 
     print("====================\nROBOTS CONNECTED\n====================")
-
-    #move leader to follower position
-    fol_state = follower_robot.get_state()
-    leader_robot.move_to_joint_position(fol_state.q)
 
     #init controllers for both robots
     tc_follower = TeleopControllerScheduler()

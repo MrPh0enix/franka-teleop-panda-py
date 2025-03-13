@@ -43,14 +43,13 @@ def calc_torque(leader_data, follower_data, K_p = [20, 15, 30, 20, 10, 4, 4], K_
 print('Teleop follower running')
 
 while True:
-    
-    cmd = str(input("Enter Command...")).casefold()
-    if cmd == 'q':
-        break
+
+    print('in')
 
     #get leader data
     data, leader_addr = sock.recvfrom(1024)
     leader_data = pickle.loads(data)
+    # print(leader_data)
 
     #get follower data
     follower_state = follower_robot.get_state()
@@ -60,6 +59,6 @@ while True:
 
     trqController.set_control(torques)
 
-    print(torques)
+    # print(torques)
 
 # sock.close()
