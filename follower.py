@@ -44,8 +44,6 @@ print('Teleop follower running')
 
 while True:
 
-    print('in')
-
     #get leader data
     data, leader_addr = sock.recvfrom(1024)
     leader_data = pickle.loads(data)
@@ -61,4 +59,4 @@ while True:
 
     # print(torques)
 
-# sock.close()
+sock.close()

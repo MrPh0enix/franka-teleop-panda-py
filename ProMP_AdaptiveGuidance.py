@@ -6,7 +6,7 @@ import numpy.matlib as mat
 import csv
 import numpy 
 # from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-from std_msgs.msg import Header
+#from std_msgs.msg import Header
 from matplotlib.pyplot import cm
 from itertools import cycle
 import itertools

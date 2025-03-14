@@ -35,4 +35,4 @@ while True:
 
     time.sleep(1/frequency)
 
-# sock.close()
+sock.close()

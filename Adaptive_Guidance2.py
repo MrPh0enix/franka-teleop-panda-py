@@ -120,77 +120,21 @@ class TeleopControllerScheduler(threading.Thread):
             while self.doControl:
                 self.controllerLock.acquire()
 
+                leader_robot_state = leader_robot.get_state()
+                follower_robot_state = follower_robot.get_state()
+
+                fb_gain = 0.3 * np.array([600, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
+                current_pose = np.array([leader_robot_state.q])
+                Forces, desired_pose, covariance_value = DTW.DtW(current_pose, fb_gain)
+                desired_pose = desired_pose.reshape(1, 7)
+
                 if self.controller:
                     ctrl_action = self.controller.getControl(leader_robot, follower_robot)
                 else:
                     ctrl_action = np.zeros((7,)) ###HARD CODED 7
                 
-                # # Ensure master and slave joint positions are synchronized
-                # leader_robot_state = leader_robot.get_state()
-                # follower_robot_state = follower_robot.get_state()
-                # abs_joint_pos_diff = np.array(abs(np.array(leader_robot_state.q) - np.array(follower_robot_state.q)))
-                # j_pos_thres_deg = 10
-                # j_pos_thres = np.ones(7,) * (j_pos_thres_deg * np.pi / 180)
-                # j_pos_check = np.sum(np.multiply(np.greater(abs_joint_pos_diff, j_pos_thres), 1))
-
-                # if j_pos_check:
-                #     ctrl_action = np.zeros((7,)) ###HARD CODED 7
-                #     print('Master & Slave out of sync - Please slow down')
-
-                # #Subtract the leader external torque sensor value for smoother zero torque leader operation
-                fb_gain = 0.3 * np.array([600, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
-                current_pose = np.array([leader_robot_state.q])
-                Forces, desired_pose, covariance_value = DTW.DtW(current_pose, fb_gain)
-                desired_pose = desired_pose.reshape(1, 7)
-                # Error = self.compute_error(current_pose, desired_pose)
-
-                # if Error > 0.1:
-                #     called_already = False # Set called_already to False
-                # if self.controller.fb_method == self.controller._adaptivefeedback:
-                #     # Simulate current robot position and error computation
-                #     error = np.linalg.norm(current_pose - desired_pose)
-                #     if not called_already:
-                #         num_steps = 1
-                #         iteration = 0
-                #         while iteration < num_steps:
-                #             # Simulate trajectory generator and control action
-                #             trajectory_generator = self.controller.getControl(leader_robot, follower_robot) ##Added follower robot which wasnt in original
-                #             ctrl_action = trajectory_generator
-                #             error_threshold = 0.2
-
-                #             if error > error_threshold:
-                #                 assistance = ctrl_action
-                #             else:
-                #                 abs_joint_pos_diff = np.array(abs(np.array(leader_robot_state.q) - np.array(follower_robot_state.q)))
-                #                 j_pos_thres_deg = 10
-                #                 j_pos_thres = np.ones(7,) * (j_pos_thres_deg * np.pi / 180)
-                #                 j_pos_check = np.sum(np.multiply(np.greater(abs_joint_pos_diff, j_pos_thres), 1))
-
-                #                 if j_pos_check:
-                #                     ctrl_action = np.zeros((7,))
-                #                     print('Master & Slave out of sync - Please slow down') ## Added myself
-                #                 assistance = ctrl_action
-                            
-                #             iteration += 1
-                #         # print("Adaptive guidance feedback enabled for controller")
-                #         ext_tau_fb_gain = 0.9
-                #         assistance = ctrl_action
-                #         # print('Assistance for controller', assistance)
-                #         Command = assistance.reshape(-1)
-                #         leaderTrqController.set_control(Command)
-                #         # leader_robot.nextStep() ### find comand in panda_py
-                #     else:
-                #         print('No feedback mode available')
-                #         Command = np.zeros((7,))
-                #         leaderTrqController.set_control(Command) 
-                #         # leader_robot.nextStep() ### find comand in panda_py
-                #         self.controller.fb_method == self.controller._nofeedback
-                
-                # elif self.controller.fb_method == self.controller._nofeedback:
-                #     ext_tau_fb_gain = 0.9
-                #     ctrl_action = np.zeros((7,))
-                #     leaderTrqController.set_control(ctrl_action) 
-                #     # leader_robot.nextStep() ### find comand in panda_py
+                print('CTRL: ', ctrl_action)
+                leaderTrqController.set_control(ctrl_action)
                 
                 self.controllerLock.release()
                 
@@ -441,7 +385,7 @@ class LeaderController():
         leader_robot_state = leader_robot.get_state()
 
         # Calculate desired pose using DTW
-        guidance_gain = 0.01 * np.array([600, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
+        guidance_gain = 0.0001 * np.array([600, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
         tau_desired = np.zeros((7,))
         adaptive_force = desired_pose - leader_robot_state.q
 
@@ -462,6 +406,8 @@ class LeaderController():
             # tau_desired = np.zeros_like(tau_desired)
             tau_desired[np.abs(tau_desired) > 0.1] = tau_desired[np.abs(tau_desired) > 0.1] / 100.0
 
+        tau_desired = tau_desired.reshape(-1)
+        
         return tau_desired
     
     def set_feedback_mode(self, mode, mts, sts):
@@ -505,67 +451,67 @@ class FollowerController():
 
 
 
-# ProMP 
-def ProMP():
-        # Parameters
-        basis = 10
-        dof= 7
-        demonstrations = 100
-        N_elements_per_demo = 100
-        trajectoriesList, timeList = get_trajectory(demonstrations, N_elements_per_demo)
-        n_data = len( np.array(trajectoriesList))
-        Time = np.linspace(0, 1, n_data)
+# # ProMP 
+# def ProMP():
+#         # Parameters
+#         basis = 10
+#         dof= 7
+#         demonstrations = 100
+#         N_elements_per_demo = 100
+#         trajectoriesList, timeList = get_trajectory(demonstrations, N_elements_per_demo)
+#         n_data = len( np.array(trajectoriesList))
+#         Time = np.linspace(0, 1, n_data)
 
-        # Create a ProMP object for learning
-        training_model = ProMp(basis, dof, N_elements_per_demo)
-        # Create a learner object and learn from data
-        learner = Learner(training_model)
-        learner.LearningFromData(trajectoriesList, timeList)
+#         # Create a ProMP object for learning
+#         training_model = ProMp(basis, dof, N_elements_per_demo)
+#         # Create a learner object and learn from data
+#         learner = Learner(training_model)
+#         learner.LearningFromData(trajectoriesList, timeList)
 
-        # Create a ProMP object for smoothing
-        ProMP_trained = ProMp(basis, dof, n_data)
-        ProMP_trained.mu = training_model.mu
-        ProMP_trained.cov = training_model.cov
-        # Generate smoothed trajectories
-        promp_trajectory = ProMP_trained.trajectory_samples(Time, 1)
-        # Compute mean and covariance of the smoothed trajectories
-        meanTraj, covTraj = ProMP_trained.trajectory_mean_cov(Time)
-        # Get mean and standard deviation of the smoothed trajectory
-        meanTraj, stdTraj = ProMP_trained.trajectoryg_mean_std(Time)
+#         # Create a ProMP object for smoothing
+#         ProMP_trained = ProMp(basis, dof, n_data)
+#         ProMP_trained.mu = training_model.mu
+#         ProMP_trained.cov = training_model.cov
+#         # Generate smoothed trajectories
+#         promp_trajectory = ProMP_trained.trajectory_samples(Time, 1)
+#         # Compute mean and covariance of the smoothed trajectories
+#         meanTraj, covTraj = ProMP_trained.trajectory_mean_cov(Time)
+#         # Get mean and standard deviation of the smoothed trajectory
+#         meanTraj, stdTraj = ProMP_trained.trajectoryg_mean_std(Time)
 
-        promp_trajectory.reshape((demonstrations, dof))
+#         promp_trajectory.reshape((demonstrations, dof))
 
-        return promp_trajectory
+#         return promp_trajectory
 
 
-def get_trajectory(demonstrations, N_elements_per_demo):
-    trajectoriesList = []
-    timeList = []
+# def get_trajectory(demonstrations, N_elements_per_demo):
+#     trajectoriesList = []
+#     timeList = []
     
-    # Import Data from demonstrations
-    for demo in range(demonstrations):
-        # Load Franka data for the demonstration
-        joints_raw, poses_raw, times_raw = ProMP_AdaptiveGuidance.Franka_data('/DEMONSTRATIONS/', demo)
+#     # Import Data from demonstrations
+#     for demo in range(demonstrations):
+#         # Load Franka data for the demonstration
+#         joints_raw, poses_raw, times_raw = ProMP_AdaptiveGuidance.Franka_data('/DEMONSTRATIONS/', demo)
         
-        # Ensure that there are at least N_elements_per_demo data points
-        if len(joints_raw) < N_elements_per_demo:
-            continue  # Skip this demonstration if it doesn't have enough data points
+#         # Ensure that there are at least N_elements_per_demo data points
+#         if len(joints_raw) < N_elements_per_demo:
+#             continue  # Skip this demonstration if it doesn't have enough data points
 
-        # Reduce data to N_elements_per_demo samples
-        joints_raw = np.asarray(joints_raw[:N_elements_per_demo])
-        times_raw = np.asarray(times_raw[:N_elements_per_demo])
+#         # Reduce data to N_elements_per_demo samples
+#         joints_raw = np.asarray(joints_raw[:N_elements_per_demo])
+#         times_raw = np.asarray(times_raw[:N_elements_per_demo])
         
-        # Append data to lists
-        trajectoriesList.append(joints_raw)
-        timeList.append(times_raw)
+#         # Append data to lists
+#         trajectoriesList.append(joints_raw)
+#         timeList.append(times_raw)
         
-        # Normalize time to the interval [0, 1]
-        T = times_raw
-        T = np.atleast_2d(T)
-        T /= np.max(T)
-        T = T.flatten()
+#         # Normalize time to the interval [0, 1]
+#         T = times_raw
+#         T = np.atleast_2d(T)
+#         T /= np.max(T)
+#         T = T.flatten()
     
-    return trajectoriesList, timeList
+#     return trajectoriesList, timeList
 
 
 def print_instructions():
