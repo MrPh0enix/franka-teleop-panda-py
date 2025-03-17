@@ -44,7 +44,7 @@ class TeleopControllerScheduler(threading.Thread):
         desired_pose = np.zeros((7,))
         covariance_value = np.zeros((7,))
         
-        control_frequency = 50 # Control loop frequency (Hz)
+        control_frequency = 10 # Control loop frequency (Hz)
         time_step = 1.0 / control_frequency
         
         if self.is_leader_control:
@@ -58,7 +58,7 @@ class TeleopControllerScheduler(threading.Thread):
                 
                 if self.controller.fb_method == self.controller._adaptivefeedback:
                     
-                    fb_gain = 0.3 * np.array([600, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
+                    fb_gain = 0.01 * np.array([600, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
                     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
                     Forces, desired_pose, covariance_value = DTW.DtW(current_pose, fb_gain) # we only need the desired pose
                     desired_pose = desired_pose.reshape(1, 7)
@@ -78,7 +78,7 @@ class TeleopControllerScheduler(threading.Thread):
             while self.doControl:
                 self.controllerLock.acquire()
                 
-                ctrl_action = self.controller.getControl(leader_robot, follower_robot)
+                ctrl_action = self.controller.getControl()
                 
                 self.controller.trq_controller.set_control(ctrl_action)
                 
@@ -99,7 +99,7 @@ class TeleopControllerScheduler(threading.Thread):
         
 
 
-def LeaderController():
+class LeaderController():
     
     def __init__(self):
         
@@ -109,11 +109,19 @@ def LeaderController():
         leader_robot.start_controller(self.trq_controller)
         
         self.leader_history = None
+        self.history_length = 150
         self.leader_init_ts = None
         self.follower_init_ts = None
         
         self.fb_methods = ("_nofeedback", "_adaptivefeedback")
         self.fb_method = self._nofeedback
+
+        self.zerotau = np.zeros((7,))
+        # PD gains
+        self.pgain = 0.2 * np.array([600.0, 600.0, 600.0, 600.0, 100.0, 100.0, 20.0], dtype=np.float64)
+        self.dgain = 0.15 * np.array([50.0, 50.0, 50.0, 50.0, 15.0, 15.0, 5.0], dtype=np.float64)
+
+        self.__gainsquish = np.vectorize(self.__gainsquish_scalar)
     
     def initController(self):
         
@@ -170,13 +178,28 @@ def LeaderController():
         # Set desired torque
         tau_desired = tau_adapt
 
-        if np.any(tau_desired > 1):
-            # tau_desired = np.zeros_like(tau_desired)
-            tau_desired[np.abs(tau_desired) > 0.1] = tau_desired[np.abs(tau_desired) > 0.1] / 100.0
+        # if np.any(tau_desired > 1):
+        #     # tau_desired = np.zeros_like(tau_desired)
+        #     tau_desired[np.abs(tau_desired) > 0.1] = tau_desired[np.abs(tau_desired) > 0.1] / 100.0
         
         tau_desired = tau_desired.reshape(-1)
 
+        # if np.any(abs(tau_desired) > 0.1):
+        #     print("At least one value is above the 0.1")
+
+        # clipped to precent undesirably high torques
+        tau_desired = np.clip(tau_desired, -0.05, 0.05)
+
+        # print("TAU des: ", tau_desired)
+
         return tau_desired
+    
+    # modified sigmoid type function squishes values between -1 and 1 to 0 while maintaining the values
+    # above and below. Used to filter out small values of forces/torques
+    def __gainsquish_scalar(self, x, a=4, b=3, c=0):
+        if abs(x) > 1:
+            return x
+        return x**3
     
     def set_feedback_mode(self, mode):
         
@@ -185,7 +208,7 @@ def LeaderController():
         
 
 
-def FollowerController():
+class FollowerController():
     
     def __init__(self):
         

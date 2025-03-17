@@ -14,7 +14,8 @@ leader_robot.move_to_start()
 trqController = panda_py.controllers.AppliedTorque()
 leader_robot.start_controller(trqController)
 
-zerotau = np.zeros((7,))
+# tau = np.array([-1.05406232e-01,  3.25757529, 1.43338947e-01, -1.49278097e-01, -5.46629683e-01, -3.04951778e-04,  5.05826310e-09])
+tau = np.zeros((7,))
 
 frequency = config["message_frequency"] #messages per second
 
@@ -24,7 +25,7 @@ while True:
     # if cmd == 'q':
     #     break
 
-    trqController.set_control(zerotau)
+    trqController.set_control(tau)
 
     time.sleep(1 / frequency)
 

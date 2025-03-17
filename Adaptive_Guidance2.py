@@ -106,7 +106,7 @@ class TeleopControllerScheduler(threading.Thread):
 
         # Control loop
         total_duration = 15 # Total duration of trajectory execution (in seconds)
-        control_frequency = 10 # Control loop frequency (Hz)
+        control_frequency = 1000 # Control loop frequency (Hz)
         time_step = 1.0 / control_frequency
         error_threshold = 0.08  # Set your desired error threshold here
 
@@ -133,7 +133,6 @@ class TeleopControllerScheduler(threading.Thread):
                 else:
                     ctrl_action = np.zeros((7,)) ###HARD CODED 7
                 
-                print('CTRL: ', ctrl_action)
                 leaderTrqController.set_control(ctrl_action)
                 
                 self.controllerLock.release()
