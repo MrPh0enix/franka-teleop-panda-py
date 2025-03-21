@@ -226,8 +226,8 @@ class FollowerController():
         global follower_robot
         
         # PD gains
-        self.pgain = 0.03 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
-        self.dgain = 0.03 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+        self.pgain = 0.1 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
+        self.dgain = 0.1 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
         
         self.trq_controller = panda_py.controllers.AppliedTorque()
         follower_robot.start_controller(self.trq_controller)

@@ -35,7 +35,7 @@ def calc_torque(leader_data, follower_data, K_p = [20, 15, 30, 20, 10, 4, 4], K_
 
     for i in range(7):
 
-        torques[i] = K_p[i] * (leader_data[i] - follower_data[i]) + K_d[i] * (follower_data[i+7]) # T = Kp * (leader_pos - follower_pos) + Kd * (follower_velocity)
+        torques[i] = K_p[i] * (leader_data[i] - follower_data[i]) - K_d[i] * (follower_data[i+7]) # T = Kp * (leader_pos - follower_pos) + Kd * (follower_velocity)
 
     torques = np.array(torques)
     return torques
