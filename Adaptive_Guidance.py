@@ -375,6 +375,8 @@ class LeaderController():
 
         self.paramsLock = threading.Lock() ### My addition
 
+        self.adaptive_init_pose = None
+
 
     def initController(self, leader_robot, follower_robot):
 

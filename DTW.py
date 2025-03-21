@@ -182,8 +182,11 @@ def DtW(real_time_joint_angles, teleo_guidance_gain):
     desired_joint_positions = promp_trajectory[corresponding_iterations]
     desired_joint_positions = np.squeeze(desired_joint_positions)
 
+    virtual_forces = np.zeros((7,)) ################## MY ADDITION ####################
+    covariance_value = np.zeros((7,))
+
     # Calculate virtual fixture forces and stiffness
-    virtual_forces, stiffness_values, covariance_value  = calculate_virtual_forces(teleo_guidance_gain, measured_joint_angles, desired_joint_positions, covTraj, corresponding_iterations)
+    # virtual_forces, stiffness_values, covariance_value  = calculate_virtual_forces(teleo_guidance_gain, measured_joint_angles, desired_joint_positions, covTraj, corresponding_iterations)
 
     # Return the calculated forces and the desired joint positions
     return virtual_forces, desired_joint_positions, covariance_value 

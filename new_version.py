@@ -85,7 +85,15 @@ class TeleopControllerScheduler(threading.Thread):
                 self.controllerLock.release()
                 
                 time.sleep(time_step)
-        
+
+    def compute_error(self, actual_positions, desired_positions):
+            if len(actual_positions) != len(desired_positions):
+                raise ValueError("Input lists must have the same length")
+            
+            #errors = [actual - desired for actual, desired in zip(actual_positions, desired_positions)]
+            errors = np.array(actual_positions) - np.array(desired_positions)
+            error_norm = np.linalg.norm(errors)
+            return error_norm  
             
     def startControl(self):
         self.doControl = True
@@ -118,8 +126,8 @@ class LeaderController():
 
         self.zerotau = np.zeros((7,))
         # PD gains
-        self.pgain = 0.2 * np.array([600.0, 600.0, 600.0, 600.0, 100.0, 100.0, 20.0], dtype=np.float64)
-        self.dgain = 0.15 * np.array([50.0, 50.0, 50.0, 50.0, 15.0, 15.0, 5.0], dtype=np.float64)
+        self.pgain = np.array([20, 15, 30, 20, 10, 4, 4], dtype=np.float64)
+        self.dgain = np.array([0.7, 0.02, 0.7, 0.7, 0.3, 0.3, 0.3], dtype=np.float64)
 
         self.__gainsquish = np.vectorize(self.__gainsquish_scalar)
     
@@ -163,17 +171,20 @@ class LeaderController():
         # Calculate desired pose using DTW
         guidance_gain = 0.01 * np.array([600, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
         tau_desired = np.zeros((7,))
-        adaptive_force = desired_pose - leader_robot_state.q
+        pose_diff = desired_pose - leader_robot_state.q
 
         # Check if any element in covariance_value is greater than 0
-        if any(value > 0 for value in covariance_value):
-            # Calculate adaptive torque when at least one element in covariance_value is greater than 0
-            tau_adapt = (guidance_gain) * covariance_value * adaptive_force - self.dgain * leader_robot_state.dq # / covariance_value[0] 
-            tau_adapt = self.__gainsquish(tau_adapt)
-        else:
-            # Handle the case when all elements in covariance_value are not greater than 0
-            # You can set tau_adapt to some default value or handle it as needed.
-            tau_adapt = 0  # or any other default value
+        # if any(value > 0 for value in covariance_value):
+        #     # Calculate adaptive torque when at least one element in covariance_value is greater than 0
+        #     # tau_adapt = (guidance_gain) * covariance_value * adaptive_force - self.dgain * leader_robot_state.dq # / covariance_value[0] 
+        #     tau_adapt = (guidance_gain) *  pose_diff - self.dgain * leader_robot_state.dq # / covariance_value[0] 
+        #     tau_adapt = self.__gainsquish(tau_adapt)
+        # else:
+        #     # Handle the case when all elements in covariance_value are not greater than 0
+        #     # You can set tau_adapt to some default value or handle it as needed.
+        #     tau_adapt = 0  # or any other default value
+
+        tau_adapt = self.pgain *  pose_diff - self.dgain * leader_robot_state.dq
 
         # Set desired torque
         tau_desired = tau_adapt
@@ -188,7 +199,7 @@ class LeaderController():
         #     print("At least one value is above the 0.1")
 
         # clipped to precent undesirably high torques
-        tau_desired = np.clip(tau_desired, -0.05, 0.05)
+        tau_desired = np.clip(tau_desired, -0.1, 0.1)
 
         # print("TAU des: ", tau_desired)
 
@@ -203,8 +214,8 @@ class LeaderController():
     
     def set_feedback_mode(self, mode):
         
-        print("Set Control Method to ", self.fb_methods[mode])
         self.fb_method = getattr(self, self.fb_methods[mode], self._nofeedback)
+        print("Set Control Method to ", self.fb_method)
         
 
 
