@@ -1,17 +1,10 @@
-#!/usr/bin/env python3
+
 import numpy as np
 import matplotlib.pyplot as plt
 import numpy.matlib as mat
-#import tensorflow as tf
 import csv
 import numpy 
-# from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-#from std_msgs.msg import Header
-from matplotlib.pyplot import cm
-from itertools import cycle
-import itertools
 
-"""      A revised version now incorporates the adaptive virtual fixture force by the variance component throughout the trajectory    """
 
 class ProMp:
 
@@ -241,40 +234,10 @@ class Learner():
         self.proMP.mu = np.mean(weight_Matrix, axis=0)
         Cov = np.cov(weight_Matrix.transpose())
         self.proMP.cov = (num_traj * Cov + self.priorCovariance * np.eye(self.proMP.num_weights)) / (num_traj + self.priorCovariance)
-    
-    # Weightining the Virtual fixture Force by the variance
-    def Virtual_FFV(self, gain, joint_pos_m, joint_pos_d, covTraj, iter):
 
-        # Parameters
-        k = gain
-        q_d = joint_pos_d[iter,:].reshape(7)
-        # q_m = joint_pos_m[iter,:]
-        q_m = np.squeeze(joint_pos_m)
- 
-        # F  = np.empty(7, dtype=object) 
-        F =  np.zeros(7)
-        weighted_stifness = np.zeros(7)
-        
-        # Compute the Force to apply for virtual fixture Virtual_FFV
-        # F = k*1/cov * (mean - (q_m - q_promp))
-        for i in range(self.proMP.num_dof):
 
-            error = q_d[i] - q_m[i]
-            mu = covTraj[i, i, iter]
-            if mu != 0:
-                # Compute the Force to apply for virtual fixture
-                # Uncomment this if you want to change the force
-                F[i] = k[i] * 1 /mu * error #  F.append()    # ( k[i] * 1 /self.proMP.cov ) * (self.proMP.mu[i] - q_m[i]-q_d[i])
+''' Franka data set from demonstrations '''
 
-                # Generated weighted_stifness
-                weighted_stifness[i] = k[i] / mu
-
-         # torque to apply tau =  ( k[i] * 1 /mu )  * (state.q_d[i] - state.q[i]) - d_gains[i] * state.dq[i]
-        # F = F.reshape(1,7)
-
-        return F, weighted_stifness   
-    
-# Franka data set from demonstrations 
 def Franka_data( path, n):
             
     joints = []
@@ -296,6 +259,23 @@ def Franka_data( path, n):
         for row in reader:  # each row is a list
             times.append(float(row[0]))
     return joints, poses, times
+
+def Franka_data2( path, n):
+            
+    joints = []
+    times = []
+    output_path = ('%soutput%s.csv' % (path, n))
+    
+    with open(output_path) as csvfile:
+        reader = csv.reader(csvfile)
+        data = list(reader)[1:]
+        for row in data:
+            joint_data = [float(item) for item in row[1:]]
+            joints.append(joint_data)
+            time_data = float(row[0])
+            times.append(time_data)
+    return joints, times
+    
     
 def random_polynomial(t, n_zeros, scale, y_offset):
 
@@ -308,7 +288,124 @@ def random_polynomial(t, n_zeros, scale, y_offset):
 
         return y_offset + (y - y_min) / (y_max - y_min) * scale
 
+# Franka data set from demonstrations 
+class Learner():
+
+    def __init__(self, proMP, regularizationCoeff=10**-9, priorCovariance=10**-4, priorWeight=1):
+
+        self.proMP = proMP
+        self.priorCovariance = priorCovariance
+        self.priorWeight = priorWeight
+        self.regularizationCoeff = regularizationCoeff
+
+    def LeraningFromData(self, trajectoryList, timeList):
+
+        num_traj = len(trajectoryList)
+        weight_Matrix = np.zeros((num_traj, self.proMP.num_weights))
+        for i in range(num_traj):
+            trajectory = trajectoryList[i]
+            time = timeList[i]
+            trajectory = trajectory.transpose().reshape(trajectory.shape[0] * trajectory.shape[1])
+            phi_Matrix = self.proMP.all_phi
+            temp = phi_Matrix.transpose().dot(phi_Matrix) + np.eye(self.proMP.num_weights) * self.regularizationCoeff
+
+            weight_Vector = np.linalg.solve(temp, phi_Matrix.transpose().dot(trajectory))
+            weight_Matrix[i, :] = weight_Vector
+
+        self.proMP.mu = np.mean(weight_Matrix, axis=0)
+
+        Cov = np.cov(weight_Matrix.transpose())
+
+        self.proMP.cov = (num_traj * Cov + self.priorCovariance * np.eye(self.proMP.num_weights)) / (num_traj + self.priorCovariance)
 
 
+if __name__ == "__main__":
+    # Parameters
+    basis = 10
+    dof = 7
+    Nd = 12
+    trajectoriesList = []
+    timeList = []
+    '''y_offset = 0.15
+    n_zeros = 3
+    scale = 5'''
+    '''     Data from demonstrations    '''
+    fig, axs = plt.subplots(dof, 1)
+    for demo in range(1,Nd+1):
+        # joints_raw, poses_raw, times_raw = Franka_data('/home/pszkb3/DEMONSTRATIONS/', demo)
+        joints_raw, times_raw = Franka_data2('NEW_DEMOS/', demo)
+        joints_raw_100 = numpy.asarray(joints_raw)
+        times_raw_100 = numpy.asarray(times_raw)
+        joints_raw = joints_raw_100[slice(0,350),:]
+        times_raw  = times_raw_100[slice(0,350)]
+        trajectoriesList.append(joints_raw)
+        timeList.append(times_raw)
+
+        T = np.linspace(0, 1, len(joints_raw))
+        for i in range(dof):
+            axs[i].plot(T, joints_raw[:, i], 'r')
+            # axs[i].legend(("ProMP Trajctory", "Demonstration"))
+            # axs[i].set_legend(("ProMP Trajctory", "Demonstration"))
+    n_data = (len(joints_raw))
+    Time = np.linspace(0, 1, n_data)
+
+    Trajectory = np.zeros((n_data  , dof))
+    joints_raw = numpy.asarray(joints_raw)
+    for i in range(dof):
+        Trajectory[:, i] = joints_raw[:,i]
+
+    '''     ProMP    '''
+
+    # promp = ProMp(basis, dof).evaluate()
+    # plotDof = 0
+    ProMP_ = ProMp( basis, dof, n_data)
+    ProMP_mean, ProMP_cov = ProMP_.trajectory_mean_cov(Time)
+    ProMP_weights = ProMP_.WeightsFromTrajecory(Trajectory)
+    Reconstrucetd_Trajectory = ProMP_.trajectory_from_weights(ProMP_weights)
+    learnedProMP = ProMp( basis, dof, n_data)
+    learner = Learner(learnedProMP)
+    learner.LeraningFromData(trajectoriesList, timeList)
+
+    proMPSmooth = ProMp( basis, dof, n_data)
+    proMPSmooth.mu = learnedProMP.mu
+    proMPSmooth.cov = learnedProMP.cov
+    trajectories = proMPSmooth.trajectory_samples(Time, 1)
+    
+    
+    # Generate smoothed trajectories
+    promp_trajectory = proMPSmooth.trajectory_samples(Time, 1)
+    # Compute mean and covariance of the smoothed trajectories
+    meanTraj, covTraj = proMPSmooth.trajectory_mean_cov(Time)
+    # Get mean and standard deviation of the smoothed trajectory
+    meanTraj, stdTraj = proMPSmooth.trajectoryg_mean_std(Time)
+    
+
+    
+    for i in range(dof):
+        axs[i].plot(Time, trajectories[:, i, :], '--', label="demo")
+        #axs[i].plot(T, joints_raw[:, i], 'r')
+        axs[i].set_ylabel('q'+str(i))
+        axs[i].set_xlabel('time')
+        axs[i].legend(("ProMP Trajctory", "Demonstration"))
+
+    axs[0].set_title(' Trajectory Sampling')
+    
+    
+    fig2, axs2 = plt.subplots(dof, 1)
+    for i in range(dof):
+        axs2[i].plot(Time, meanTraj[:, i], '--', label="demo")
+        axs2[i].set_ylabel('q'+str(i))
+        axs2[i].set_xlabel('time')
+        axs2[i].fill_between(Time, meanTraj[:, i] - stdTraj[:, i], meanTraj[:, i] + stdTraj[:, i], 
+                 color='b', alpha=0.2, label="Std Dev")
+    
+    axs2[0].set_title('Mean Trajectories')
 
 
+    fig3, axs3 = plt.subplots(dof, 1)
+    for i in range(dof):
+        axs3[i].plot(Time, Trajectory[:, i])
+        axs3[i].plot(Time, Reconstrucetd_Trajectory[:, i])
+        axs3[i].legend(("Inital Trajectory", "ProMP Trajctory"))
+
+    plt.show()
