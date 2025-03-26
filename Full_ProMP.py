@@ -176,7 +176,7 @@ class ProMp:
 
         return trajectory_mean, trajectory_cov
 
-    def trajectoryg_mean_std(self, time):
+    def trajectory_mean_std(self, time):
 
         one_dimensional_trajectory = self.all_phi.dot(self.mu.transpose())
         trajectory_mean = one_dimensional_trajectory.reshape(self.num_dof, one_dimensional_trajectory.shape[0]//self.num_dof)
@@ -206,34 +206,6 @@ class ProMp:
         newProMP.cov = self.cov - L.dot(basisMatrix).dot(self.cov)
 
         return newProMP
-
-# For all Trajectories used in demonstration 
-class Learner():
-
-    def __init__(self, proMP, regularizationCoeff=10**-9, priorCovariance=10**-4, priorWeight=1):
-
-        self.proMP = proMP
-        self.priorCovariance = priorCovariance
-        self.priorWeight = priorWeight
-        self.regularizationCoeff = regularizationCoeff
-
-    def LearningFromData(self, trajectoryList, timeList):
-
-        num_traj = len(trajectoryList)
-        weight_Matrix = np.zeros((num_traj, self.proMP.num_weights))
-        for i in range(num_traj):
-
-            trajectory = trajectoryList[i]
-            time = timeList[i]
-            trajectory = trajectory.transpose().reshape(trajectory.shape[0] * trajectory.shape[1])
-            phi_Matrix = self.proMP.all_phi
-            temp = phi_Matrix.transpose().dot(phi_Matrix) + np.eye(self.proMP.num_weights) * self.regularizationCoeff
-            weight_Vector = np.linalg.solve(temp, phi_Matrix.transpose().dot(trajectory))
-            weight_Matrix[i, :] = weight_Vector
-
-        self.proMP.mu = np.mean(weight_Matrix, axis=0)
-        Cov = np.cov(weight_Matrix.transpose())
-        self.proMP.cov = (num_traj * Cov + self.priorCovariance * np.eye(self.proMP.num_weights)) / (num_traj + self.priorCovariance)
 
 
 ''' Franka data set from demonstrations '''
@@ -298,7 +270,7 @@ class Learner():
         self.priorWeight = priorWeight
         self.regularizationCoeff = regularizationCoeff
 
-    def LeraningFromData(self, trajectoryList, timeList):
+    def LearningFromData(self, trajectoryList, timeList):
 
         num_traj = len(trajectoryList)
         weight_Matrix = np.zeros((num_traj, self.proMP.num_weights))
@@ -334,10 +306,12 @@ if __name__ == "__main__":
     for demo in range(1,Nd+1):
         # joints_raw, poses_raw, times_raw = Franka_data('/home/pszkb3/DEMONSTRATIONS/', demo)
         joints_raw, times_raw = Franka_data2('NEW_DEMOS/', demo)
-        joints_raw_100 = numpy.asarray(joints_raw)
-        times_raw_100 = numpy.asarray(times_raw)
-        joints_raw = joints_raw_100[slice(0,350),:]
-        times_raw  = times_raw_100[slice(0,350)]
+        # joints_raw_100 = numpy.asarray(joints_raw)
+        # times_raw_100 = numpy.asarray(times_raw)
+        joints_raw = np.asarray(joints_raw[:350])
+        times_raw = np.asarray(times_raw[:350])
+        # joints_raw = joints_raw_100[slice(0,350),:]
+        # times_raw  = times_raw_100[slice(0,350)]
         trajectoriesList.append(joints_raw)
         timeList.append(times_raw)
 
@@ -347,6 +321,7 @@ if __name__ == "__main__":
             # axs[i].legend(("ProMP Trajctory", "Demonstration"))
             # axs[i].set_legend(("ProMP Trajctory", "Demonstration"))
     n_data = (len(joints_raw))
+    print(n_data)
     Time = np.linspace(0, 1, n_data)
 
     Trajectory = np.zeros((n_data  , dof))
@@ -356,28 +331,24 @@ if __name__ == "__main__":
 
     '''     ProMP    '''
 
-    # promp = ProMp(basis, dof).evaluate()
-    # plotDof = 0
+    print(f'{basis}, {dof}, {n_data}')
     ProMP_ = ProMp( basis, dof, n_data)
     ProMP_mean, ProMP_cov = ProMP_.trajectory_mean_cov(Time)
     ProMP_weights = ProMP_.WeightsFromTrajecory(Trajectory)
     Reconstrucetd_Trajectory = ProMP_.trajectory_from_weights(ProMP_weights)
     learnedProMP = ProMp( basis, dof, n_data)
     learner = Learner(learnedProMP)
-    learner.LeraningFromData(trajectoriesList, timeList)
+    learner.LearningFromData(trajectoriesList, timeList)
 
     proMPSmooth = ProMp( basis, dof, n_data)
     proMPSmooth.mu = learnedProMP.mu
     proMPSmooth.cov = learnedProMP.cov
-    trajectories = proMPSmooth.trajectory_samples(Time, 1)
-    
-    
     # Generate smoothed trajectories
-    promp_trajectory = proMPSmooth.trajectory_samples(Time, 1)
+    trajectories = proMPSmooth.trajectory_samples(Time, 1)
     # Compute mean and covariance of the smoothed trajectories
     meanTraj, covTraj = proMPSmooth.trajectory_mean_cov(Time)
     # Get mean and standard deviation of the smoothed trajectory
-    meanTraj, stdTraj = proMPSmooth.trajectoryg_mean_std(Time)
+    meanTraj, stdTraj = proMPSmooth.trajectory_mean_std(Time)
     
 
     

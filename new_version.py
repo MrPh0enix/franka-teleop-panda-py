@@ -5,7 +5,7 @@ import threading
 from collections import deque
 import time
 import numpy as np
-import DTW
+import DTW2
 
 
 class TeleopControllerScheduler(threading.Thread):
@@ -55,15 +55,7 @@ class TeleopControllerScheduler(threading.Thread):
                 
                 leader_robot_state = leader_robot.get_state()
                 follower_robot_state = follower_robot.get_state()
-                
-                if self.controller.fb_method == self.controller._adaptivefeedback:
                     
-                    fb_gain = 0.01 * np.array([600, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
-                    current_pose = np.array([leader_robot_state.q]) # could change to follower pose
-                    Forces, desired_pose, covariance_value = DTW.DtW(current_pose, fb_gain) # we only need the desired pose
-                    desired_pose = desired_pose.reshape(1, 7)
-                    
-
                 ctrl_action = self.controller.getControl()
                 
                 self.controller.trq_controller.set_control(ctrl_action)
@@ -169,20 +161,10 @@ class LeaderController():
         leader_robot_state = leader_robot.get_state()
 
         # Calculate desired pose using DTW
-        guidance_gain = 0.01 * np.array([600, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
-        tau_desired = np.zeros((7,))
+        current_pose = np.array([leader_robot_state.q]) # could change to follower pose
+        desired_pose = DTW2.DtW(current_pose) # we only need the desired pose
+        desired_pose = desired_pose.reshape(1, 7)
         pose_diff = desired_pose - leader_robot_state.q
-
-        # Check if any element in covariance_value is greater than 0
-        # if any(value > 0 for value in covariance_value):
-        #     # Calculate adaptive torque when at least one element in covariance_value is greater than 0
-        #     # tau_adapt = (guidance_gain) * covariance_value * adaptive_force - self.dgain * leader_robot_state.dq # / covariance_value[0] 
-        #     tau_adapt = (guidance_gain) *  pose_diff - self.dgain * leader_robot_state.dq # / covariance_value[0] 
-        #     tau_adapt = self.__gainsquish(tau_adapt)
-        # else:
-        #     # Handle the case when all elements in covariance_value are not greater than 0
-        #     # You can set tau_adapt to some default value or handle it as needed.
-        #     tau_adapt = 0  # or any other default value
 
         tau_adapt = self.pgain *  pose_diff - self.dgain * leader_robot_state.dq
 
@@ -195,11 +177,8 @@ class LeaderController():
         
         tau_desired = tau_desired.reshape(-1)
 
-        # if np.any(abs(tau_desired) > 0.1):
-        #     print("At least one value is above the 0.1")
-
-        # clipped to precent undesirably high torques
-        tau_desired = np.clip(tau_desired, -0.1, 0.1)
+        # clipped to prevent undesirably high torques
+        tau_desired = np.clip(tau_desired, -1, 1)
 
         # print("TAU des: ", tau_desired)
 
