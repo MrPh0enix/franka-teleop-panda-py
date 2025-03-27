@@ -11,13 +11,13 @@ with open('teleop_params.config', 'r') as teleop_params:
 frequency = config["message_frequency"] #messages per second
 
 leader_robot = panda_py.Panda(config["leader_robot_ip"])
-leader_robot.move_to_start()
+# leader_robot.move_to_start()
 
 #Start the torque controller for the robot
 trqController = panda_py.controllers.AppliedTorque()
 leader_robot.start_controller(trqController)
 
-zerotau = np.array([0,0,0,0,0,0,0])
+zerotau = np.array([0, 0,0,2.1,0,0,0])
 #Max tested values
 #1.5
 #1.2
@@ -27,9 +27,8 @@ zerotau = np.array([0,0,0,0,0,0,0])
 #0.9
 #0.7
 
-
+# robot_state = leader_robot.get_state()
 while True:
 
     trqController.set_control(zerotau)
-
     time.sleep(1/frequency)

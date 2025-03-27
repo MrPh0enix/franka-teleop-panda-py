@@ -44,39 +44,44 @@ class TeleopControllerScheduler(threading.Thread):
         desired_pose = np.zeros((7,))
         covariance_value = np.zeros((7,))
         
-        control_frequency = 50 # Control loop frequency (Hz)
-        time_step = 1.0 / control_frequency
+        # control_frequency = 10 # Control loop frequency (Hz)
+        # time_step = 1.0 / control_frequency
+
+        # start_time = time.time()
         
         if self.is_leader_control:
+
+            with leader_robot.create_context(frequency=50) as ctx1:
             
-            while self.doControl:
-                
-                self.controllerLock.acquire()
-                
-                leader_robot_state = leader_robot.get_state()
-                follower_robot_state = follower_robot.get_state()
+                while ctx1.ok() and self.doControl:
                     
-                ctrl_action = self.controller.getControl()
+                    self.controllerLock.acquire()
+                        
+                    ctrl_action = self.controller.getControl()
+
+                    self.controller.trq_leader_controller.set_control(ctrl_action)
+                    
+                    self.controllerLock.release()
+                    
+                    # time.sleep(time_step)
                 
-                self.controller.trq_leader_controller.set_control(ctrl_action)
-                
-                self.controllerLock.release()
-                
-                time.sleep(time_step)
+                    # print('Time taken: ', start_time-time.time())
                 
                 
-        elif self.is_follower_control:
+        # elif self.is_follower_control:
+
+        #     with follower_robot.create_context(frequency=20) as ctx2:
             
-            while self.doControl:
-                self.controllerLock.acquire()
-                
-                ctrl_action = self.controller.getControl()
-                
-                self.controller.trq_follower_controller.set_control(ctrl_action)
-                
-                self.controllerLock.release()
-                
-                time.sleep(time_step)
+        #         while ctx2.ok() and self.doControl:
+        #             self.controllerLock.acquire()
+                    
+        #             ctrl_action = self.controller.getControl()
+                    
+        #             self.controller.trq_follower_controller.set_control(ctrl_action)
+                    
+        #             self.controllerLock.release()
+                    
+                    # time.sleep(time_step)
 
     def compute_error(self, actual_positions, desired_positions):
             if len(actual_positions) != len(desired_positions):
@@ -118,13 +123,13 @@ class LeaderController():
 
         self.zerotau = np.zeros((7,))
         # PD gains
-        self.pgain = 0.03 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
-        self.dgain = 0.03 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+        self.pgain = 0.1 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
+        self.dgain = 0.3 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
         self.__gainsquish = np.vectorize(self.__gainsquish_scalar)
 
         self.adaptiveG_init_pos = DTW2.get_init_pos()
-        self.init_pos_reached = True
+        self.init_pos_reached = False
 
     
     def initController(self):
@@ -139,13 +144,13 @@ class LeaderController():
         
     def getControl(self):
         
-        leader_robot_state = leader_robot.get_state()
-        self.leader_history.append(leader_robot_state.q)
+        # leader_robot_state = leader_robot.get_state()
+        # self.leader_history.append(leader_robot_state.q)
         tau = self.fb_method()
         return tau
     
     def _nofeedback(self):
-    
+        self.init_pos_reached = False
         return self.zerotau
     
     def _adaptivefeedback(self):
@@ -163,16 +168,15 @@ class LeaderController():
 
         leader_robot_state = leader_robot.get_state()
 
-        
-
         #send it to the initial pos first
         if not self.init_pos_reached:
             leader_robot.stop_controller()
             leader_robot.move_to_joint_position(self.adaptiveG_init_pos)
-            leader_robot.set_default_behavior
-            if np.all(abs(pose_diff) < 0.05):
-                print('reached')
-                self.init_pos_reached = True
+            leader_robot.start_controller(self.trq_leader_controller)
+            pose_diff = self.adaptiveG_init_pos - leader_robot_state.q
+            self.init_pos_reached = True
+            print('reached')
+
         else:
             # Calculate desired pose using DTW
             current_pose = np.array([leader_robot_state.q]) # could change to follower pose
@@ -192,7 +196,9 @@ class LeaderController():
         tau_desired = tau_desired.reshape(-1)
 
         # clipped to prevent undesirably high torques
-        tau_desired = np.clip(tau_desired, -1, 1)
+        min_values = np.array([-1.5, -1.7, -1.2, -1.2, -1, -1, -0.8])
+        max_values = np.array([1.5, 1.4, 1.2, 1.5, 1, 1, 0.8])
+        tau_desired = np.clip(tau_desired, min_values, max_values)
 
         # print("TAU des: ", tau_desired)
 
@@ -217,6 +223,8 @@ class FollowerController():
     def __init__(self):
         
         global follower_robot
+
+        self.zerotau = np.zeros((7,))
         
         # PD gains
         self.pgain = 0.03 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
@@ -230,9 +238,13 @@ class FollowerController():
     
     def getControl(self):
         # self.paramsLock.acquire()
-        tau = self.__pdcontrol()
+        tau = self._nofeedback()
         # self.paramsLock.release()
         return tau
+    
+    def _nofeedback(self):
+        follower_robot_state = follower_robot.get_state()
+        return self.zerotau
 
     def __pdcontrol(self):
         leader_robot_state = leader_robot.get_state()
