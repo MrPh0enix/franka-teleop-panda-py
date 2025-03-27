@@ -24,8 +24,9 @@ for demo in range(1, Nd+1):
             # Load Franka data for the demonstration
             joints_raw, times_raw= Full_ProMP.Franka_data2('NEW_DEMOS/', demo)
             # Reduce data to 100 samples
-            joints_raw = np.asarray(joints_raw[:350])
-            times_raw = np.asarray(times_raw[:350])
+            indices = np.linspace(0, len(joints_raw)-1, 100, dtype = int)
+            joints_raw = np.asarray([joints_raw[i] for i in indices])
+            times_raw = np.asarray([times_raw[i] for i in indices])
             # Append data to lists
             trajectoriesList.append(joints_raw)
             timeList.append(times_raw)
@@ -36,7 +37,6 @@ for demo in range(1, Nd+1):
 
 # Get the number of data points
 n_data = len(joints_raw)
-print(n_data)
 # Create a time array
 Time = np.linspace(0, 1, n_data)
 
@@ -85,8 +85,14 @@ def DtW(real_time_joint_angles):
         
         corresponding_iterations.append(corresponding_iteration)
 
+    # print(corresponding_iterations)
     # Fetch the desired trajectory at corresponding iterations
     desired_joint_positions = meanTraj[corresponding_iterations]
     desired_joint_positions = np.squeeze(desired_joint_positions)
     
     return desired_joint_positions
+
+
+def get_init_pos():
+     
+    return meanTraj[0]

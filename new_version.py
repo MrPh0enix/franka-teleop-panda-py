@@ -44,7 +44,7 @@ class TeleopControllerScheduler(threading.Thread):
         desired_pose = np.zeros((7,))
         covariance_value = np.zeros((7,))
         
-        control_frequency = 10 # Control loop frequency (Hz)
+        control_frequency = 50 # Control loop frequency (Hz)
         time_step = 1.0 / control_frequency
         
         if self.is_leader_control:
@@ -58,7 +58,7 @@ class TeleopControllerScheduler(threading.Thread):
                     
                 ctrl_action = self.controller.getControl()
                 
-                self.controller.trq_controller.set_control(ctrl_action)
+                self.controller.trq_leader_controller.set_control(ctrl_action)
                 
                 self.controllerLock.release()
                 
@@ -72,7 +72,7 @@ class TeleopControllerScheduler(threading.Thread):
                 
                 ctrl_action = self.controller.getControl()
                 
-                self.controller.trq_controller.set_control(ctrl_action)
+                self.controller.trq_follower_controller.set_control(ctrl_action)
                 
                 self.controllerLock.release()
                 
@@ -105,8 +105,8 @@ class LeaderController():
         
         global leader_robot
         
-        self.trq_controller = panda_py.controllers.AppliedTorque()
-        leader_robot.start_controller(self.trq_controller)
+        self.trq_leader_controller = panda_py.controllers.AppliedTorque()
+        leader_robot.start_controller(self.trq_leader_controller)
         
         self.leader_history = None
         self.history_length = 150
@@ -118,10 +118,14 @@ class LeaderController():
 
         self.zerotau = np.zeros((7,))
         # PD gains
-        self.pgain = np.array([20, 15, 30, 20, 10, 4, 4], dtype=np.float64)
-        self.dgain = np.array([0.7, 0.02, 0.7, 0.7, 0.3, 0.3, 0.3], dtype=np.float64)
+        self.pgain = 0.03 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
+        self.dgain = 0.03 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
         self.__gainsquish = np.vectorize(self.__gainsquish_scalar)
+
+        self.adaptiveG_init_pos = DTW2.get_init_pos()
+        self.init_pos_reached = True
+
     
     def initController(self):
         
@@ -156,15 +160,25 @@ class LeaderController():
         Returns:
             numpy.ndarray: Desired adaptive torque.
         """
-        
 
         leader_robot_state = leader_robot.get_state()
 
-        # Calculate desired pose using DTW
-        current_pose = np.array([leader_robot_state.q]) # could change to follower pose
-        desired_pose = DTW2.DtW(current_pose) # we only need the desired pose
-        desired_pose = desired_pose.reshape(1, 7)
-        pose_diff = desired_pose - leader_robot_state.q
+        
+
+        #send it to the initial pos first
+        if not self.init_pos_reached:
+            leader_robot.stop_controller()
+            leader_robot.move_to_joint_position(self.adaptiveG_init_pos)
+            leader_robot.set_default_behavior
+            if np.all(abs(pose_diff) < 0.05):
+                print('reached')
+                self.init_pos_reached = True
+        else:
+            # Calculate desired pose using DTW
+            current_pose = np.array([leader_robot_state.q]) # could change to follower pose
+            desired_pose = DTW2.DtW(current_pose) # we only need the desired pose
+            desired_pose = desired_pose.reshape(1, 7)
+            pose_diff = desired_pose - leader_robot_state.q
 
         tau_adapt = self.pgain *  pose_diff - self.dgain * leader_robot_state.dq
 
@@ -205,11 +219,11 @@ class FollowerController():
         global follower_robot
         
         # PD gains
-        self.pgain = 0.1 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
-        self.dgain = 0.1 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+        self.pgain = 0.03 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
+        self.dgain = 0.03 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
         
-        self.trq_controller = panda_py.controllers.AppliedTorque()
-        follower_robot.start_controller(self.trq_controller)
+        self.trq_follower_controller = panda_py.controllers.AppliedTorque()
+        follower_robot.start_controller(self.trq_follower_controller)
 
     def initController(self):
         return

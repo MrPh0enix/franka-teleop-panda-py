@@ -1,21 +1,35 @@
-import csv
+
+import panda_py
+import panda_py.controllers
+import numpy as np
+import json
+import time
+
+with open('teleop_params.config', 'r') as teleop_params:
+    config = json.load(teleop_params)
+
+frequency = config["message_frequency"] #messages per second
+
+leader_robot = panda_py.Panda(config["leader_robot_ip"])
+leader_robot.move_to_start()
+
+#Start the torque controller for the robot
+trqController = panda_py.controllers.AppliedTorque()
+leader_robot.start_controller(trqController)
+
+zerotau = np.array([0,0,0,0,0,0,0])
+#Max tested values
+#1.5
+#1.2
+#1.2
+#1.7
+#1
+#0.9
+#0.7
 
 
-def Franka_data2( path, n):
-            
-    joints = []
-    times = []
-    output_path = ('%soutput%s.csv' % (path, n))
-    
-    with open(output_path) as csvfile:
-        reader = csv.reader(csvfile)
-        data = list(reader)[1:]
-        for row in data:
-            joint_data = [float(item) for item in row[1:]]
-            joints.append(joint_data)
-            time_data = float(row[0])
-            times.append(time_data)
-    return joints, times
+while True:
 
-joints, times = Franka_data2('NEW_DEMOS/', 1)
-print(times)
+    trqController.set_control(zerotau)
+
+    time.sleep(1/frequency)
