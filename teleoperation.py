@@ -1,3 +1,7 @@
+
+''' Teleoperation implemented in a single python file'''
+
+
 import panda_py
 import panda_py.controllers
 import time
