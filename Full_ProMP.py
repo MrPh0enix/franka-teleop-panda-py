@@ -331,7 +331,6 @@ if __name__ == "__main__":
 
     '''     ProMP    '''
 
-    print(f'{basis}, {dof}, {n_data}')
     ProMP_ = ProMp( basis, dof, n_data)
     ProMP_mean, ProMP_cov = ProMP_.trajectory_mean_cov(Time)
     ProMP_weights = ProMP_.WeightsFromTrajecory(Trajectory)
