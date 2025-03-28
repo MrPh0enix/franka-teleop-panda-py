@@ -78,4 +78,6 @@ with follower_robot.create_context(frequency=30) as ctx2:
         trqController.set_control(torques)
 
 
+follower_robot.stop_controller()
+
 sock.close()

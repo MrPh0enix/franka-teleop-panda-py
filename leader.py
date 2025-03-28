@@ -82,4 +82,6 @@ with leader_robot.create_context(frequency=30) as ctx1:
         trqController.set_control(torques)
 
 
+leader_robot.stop_controller()
+
 sock.close()
