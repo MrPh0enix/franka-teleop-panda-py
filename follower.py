@@ -1,12 +1,13 @@
 import socket
 import sys
-import keyboard
 import panda_py
 import pickle
 import numpy as np
 import json
-
+import adaptive_positioning
 import panda_py.controllers
+import keyboard
+import time
 
 if len(sys.argv) != 3:
     raise ValueError("Provide python3 follower.py <computer ip> <computer port>")
@@ -15,7 +16,8 @@ with open('teleop_params.config', 'r') as teleop_params:
     config = json.load(teleop_params)
 
 follower_robot = panda_py.Panda(config['follower_robot_ip'])
-follower_robot.move_to_start()
+init_pos = adaptive_positioning.get_init_pos()
+follower_robot.move_to_joint_position(init_pos)
 
 ROBOT_IP = sys.argv[1]
 ROBOT_PORT = int(sys.argv[2])
@@ -24,38 +26,58 @@ ROBOT_PORT = int(sys.argv[2])
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((ROBOT_IP, ROBOT_PORT))
 
-print('socket running')
-# print('press q to close')
 
 #Start the torque controller for the robot
 trqController = panda_py.controllers.AppliedTorque()
 follower_robot.start_controller(trqController)
 
-def calc_torque(leader_data, follower_data, K_p = [20, 15, 30, 20, 10, 4, 4], K_d = [0.7, 0.02, 0.7, 0.7, 0.3, 0.3, 0.3]):
+def calc_torque(leader_data, follower_data):
+
     torques = [0, 0, 0, 0, 0, 0, 0]
+
+    # PD gains
+    pgain = 0.07 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
+    dgain = 0.07 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+
 
     for i in range(7):
 
-        torques[i] = K_p[i] * (leader_data[i] - follower_data[i]) + K_d[i] * (follower_data[i+7]) # T = Kp * (leader_pos - follower_pos) + Kd * (follower_velocity)
+        torques[i] = pgain[i] * (leader_data[i] - follower_data[i]) - dgain[i] * (follower_data[i+7]) # T = Kp * (leader_pos - follower_pos) + Kd * (follower_velocity)
 
     torques = np.array(torques)
+
     return torques
 
+def print_instructions():
+    print("(0) No force feedback")   
+    print("(1) Use virtual fixture force feedback")
+    print("(q) Exit")
 
-while True:
 
-    #get leader data
-    data, leader_addr = sock.recvfrom(1024)
-    leader_data = pickle.loads(data)
+with follower_robot.create_context(frequency=30) as ctx2:
 
-    #get follower data
-    follower_state = follower_robot.get_state()
-    follower_data = follower_state.q + follower_state.dq
+    print('Teleop follower running')
+    print_instructions()
+    
+    while ctx2.ok():
 
-    torques = calc_torque(leader_data, follower_data)
+        if keyboard.is_pressed('q'):
+            break
 
-    trqController.set_control(torques)
+        #get leader data
+        data, leader_addr = sock.recvfrom(1024)
+        leader_data = pickle.loads(data)
+        # print(leader_data)
 
-    print(torques)
+        #get follower data
+        follower_state = follower_robot.get_state()
+        follower_data = follower_state.q + follower_state.dq
 
-# sock.close()
+        torques = calc_torque(leader_data, follower_data)
+
+        trqController.set_control(torques)
+
+
+follower_robot.stop_controller()
+
+sock.close()
