@@ -16,13 +16,13 @@ leader_robot = panda_py.Panda(config["leader_robot_ip"])
 # follower_robot = panda_py.Panda(config['follower_robot_ip'])
 
 
-with open("JOINTS3.csv", "r") as file:
+with open("output1.csv", "r") as file:
     reader = csv.reader(file)
     rows = [row for row in reader]
-    first_pos = rows[1][0:]
+    first_pos = rows[1][1:]
 
 
-# leader_robot.move_to_joint_position(first_pos)
+leader_robot.move_to_joint_position(first_pos)
 
 
 trqController = panda_py.controllers.AppliedTorque()
@@ -35,7 +35,7 @@ K_d = [0.7, 0.02, 0.7, 0.7, 0.3, 0.3, 0.3]
 
 for row in rows[1:]:
 
-    recorded_pos = row[0:]
+    recorded_pos = row[1:]
 
     leader_robot_state = leader_robot.get_state()
     leader_robot_pos = leader_robot_state.q
