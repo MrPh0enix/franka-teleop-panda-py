@@ -305,7 +305,7 @@ if __name__ == "__main__":
     fig, axs = plt.subplots(dof, 1)
     for demo in range(1,Nd+1):
         # joints_raw, poses_raw, times_raw = Franka_data('/home/pszkb3/DEMONSTRATIONS/', demo)
-        joints_raw, times_raw = Franka_data2('NEW_DEMOS/', demo)
+        joints_raw, times_raw = Franka_data2('STRAIGHT_LINE_DEMOS/', demo)
         # joints_raw_100 = numpy.asarray(joints_raw)
         # times_raw_100 = numpy.asarray(times_raw)
         joints_raw = np.asarray(joints_raw[:350])

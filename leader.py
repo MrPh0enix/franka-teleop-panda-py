@@ -8,9 +8,11 @@ import json
 import numpy as np
 import adaptive_positioning
 import keyboard
+from pubsub import pub
 
-if len(sys.argv) != 5:
-    raise ValueError("Provide python3 leader.py <follower_computer ip> <follower_computer port> <leader ip> <leader computer port>")
+
+# if len(sys.argv) != 5:
+#     raise ValueError("Provide python3 leader.py <follower_computer ip> <follower_computer port> <leader ip> <leader computer port>")
 
 with open('teleop_params.config', 'r') as teleop_params:
     config = json.load(teleop_params)
@@ -20,11 +22,10 @@ init_pos = adaptive_positioning.get_init_pos()
 leader_robot.move_to_joint_position(init_pos)
 # leader_robot.teaching_mode(True) # Might enable human interaction and fix cartesian reflex error
 
-FOLLOWER_IP = sys.argv[1]
-FOLLOWER_PORT = int(sys.argv[2])
-LEADER_IP = sys.argv[3]
-LEADER_PORT = int(sys.argv[4])
-
+FOLLOWER_IP = '172.22.3.6'
+FOLLOWER_PORT = 5050
+LEADER_IP = '172.22.3.6'
+LEADER_PORT = 5051
 
 # Create a UDP socket for sending data
 send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -34,15 +35,22 @@ recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 recv_sock.bind((LEADER_IP, LEADER_PORT))
 
 
-
 #Start the torque controller for the robot
 trqController = panda_py.controllers.AppliedTorque()
 leader_robot.start_controller(trqController)
 
 
+# subscriber to listen to follower data
+follower_state = None
+leader_state = None
+def listener(data):
+    print('received')
+    global follower_state
+    follower_state = pickle.loads(data)
+pub.subscribe(listener, 'follower_data')
 
 
-def calc_adaptive_trq(leader_robot_state):
+def calc_adaptive_trq(leader_robot_state, follower_state):
 
     # PD gains
     pgain = 0.6 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
@@ -67,7 +75,7 @@ def calc_adaptive_trq(leader_robot_state):
     return tau_desired
 
 
-def no_feedback(leader_robot_state):
+def no_feedback(leader_robot_state, follower_state):
 
     tau_desired = np.zeros((7,))
     return tau_desired
@@ -115,15 +123,12 @@ with leader_robot.create_context(frequency=60) as ctx1:
         
     
         leader_state = leader_robot.get_state()
-        state_data = leader_state.q + leader_state.dq
-        message = pickle.dumps(state_data)
-        bytes = send_sock.sendto(message, (FOLLOWER_IP, FOLLOWER_PORT))
+        leader_data = leader_state.q + leader_state.dq
+        message = pickle.dumps(leader_data)
+        pub.sendMessage('leader_data', data=message)
+        # bytes = send_sock.sendto(message, (FOLLOWER_IP, FOLLOWER_PORT))
 
-        data, follower_addr = recv_sock.recvfrom(1024)
-        follower_data = pickle.loads(data)
-        print(follower_data)
-
-        torques = trq_calc(leader_state)
+        torques = trq_calc(leader_state, follower_state)
 
         trqController.set_control(torques)
 

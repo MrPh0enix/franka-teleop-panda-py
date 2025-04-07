@@ -19,7 +19,7 @@ timeList = []
 '''     Import Data from demonstrations    '''
 for demo in range(1, Nd+1):
             # Load Franka data for the demonstration
-            joints_raw, times_raw= Full_ProMP.Franka_data2('NEW_DEMOS/', demo)
+            joints_raw, times_raw= Full_ProMP.Franka_data2('STRAIGHT_LINE_DEMOS/', demo)
             # Reduce data to 100 samples
             indices = np.linspace(0, len(joints_raw)-1, 50, dtype = int)
             joints_raw = np.asarray([joints_raw[i] for i in indices])
