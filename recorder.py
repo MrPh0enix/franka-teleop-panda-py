@@ -23,7 +23,7 @@ follower_robot.start_controller(folTrqController)
 
 start_time = time.time()
 
-frequency = 10
+frequency = 10 #frequency of recording
 time_delay = 1/frequency
 
 recordings = [['Time', 'pos1', 'pos2', 'pos3', 'pos4', 'pos5', 'pos6', 'pos7']]
@@ -39,8 +39,6 @@ def calc_torque(leader_state, follower_state,
         torques[i] = K_p[i] * (leader_state.q[i] - follower_state.q[i]) - K_d[i] * (follower_state.dq[i])
     torques = np.array(torques)
     return torques
-    
-
 
 
 while True:
@@ -58,6 +56,7 @@ while True:
                 leader_state.q[3], leader_state.q[4], leader_state.q[5], leader_state.q[6]]
     recordings.append(curr_step)
     time.sleep(time_delay)
+
 
 follower_robot.stop_controller()
 
