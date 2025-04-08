@@ -6,7 +6,6 @@ import json
 import adaptive_positioning
 import panda_py.controllers
 import keyboard
-from pubsub import pub
 
 # if len(sys.argv) != 5:
 #     raise ValueError("Provide python3 leader.py <follower_computer ip> <follower_computer port> <leader ip> <leader computer port>")
@@ -23,9 +22,9 @@ FOLLOWER_PORT = 5050
 LEADER_IP = '172.22.3.6'
 LEADER_PORT = 5051
 
-
 # Create a UDP socket server to receive info
 recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+recv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 recv_sock.bind((FOLLOWER_IP, FOLLOWER_PORT))
 
 # Create a UDP socket for sending data
@@ -34,17 +33,6 @@ send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 #Start the torque controller for the robot
 trqController = panda_py.controllers.AppliedTorque()
 follower_robot.start_controller(trqController)
-
-
-# subscriber to listen to leader data
-follower_data= 14 * [0]
-follower_state = follower_robot.get_state()
-leader_data = follower_state.q + follower_state.dq
-def listener(data):
-    print('received')
-    global leader_state
-    leader_state = pickle.loads(data)
-pub.subscribe(listener, 'leader_data')
 
 
 def calc_torque(leader_data, follower_data):
@@ -76,17 +64,23 @@ with follower_robot.create_context(frequency=60) as ctx2:
     while ctx2.ok():
 
         if keyboard.is_pressed('q'):
+            follower_robot.stop_controller()
+            recv_sock.close()
+            send_sock.close()
             break
-        
-        # #get leader data
-        # data, leader_addr = recv_sock.recvfrom(1024)
-        # leader_data = pickle.loads(data)
         
         #get follower data and send it to leader
         follower_state = follower_robot.get_state()
         follower_data = follower_state.q + follower_state.dq
         message = pickle.dumps(follower_data)
-        pub.sendMessage('follower_data', data=message)
+        send_sock.sendto(message, (LEADER_IP, LEADER_PORT))
+
+        try:
+            #get leader data
+            data, leader_addr = recv_sock.recvfrom(1024)
+            leader_data = pickle.loads(data)
+        except:
+            leader_data = follower_data
 
         torques = calc_torque(leader_data, follower_data)
 
@@ -94,6 +88,5 @@ with follower_robot.create_context(frequency=60) as ctx2:
 
 
 follower_robot.stop_controller()
-
 recv_sock.close()
 send_sock.close()

@@ -8,7 +8,6 @@ import json
 import numpy as np
 import adaptive_positioning
 import keyboard
-from pubsub import pub
 
 
 # if len(sys.argv) != 5:
@@ -20,7 +19,17 @@ with open('teleop_params.config', 'r') as teleop_params:
 leader_robot = panda_py.Panda(config["leader_robot_ip"])
 init_pos = adaptive_positioning.get_init_pos()
 leader_robot.move_to_joint_position(init_pos)
-# leader_robot.teaching_mode(True) # Might enable human interaction and fix cartesian reflex error
+#Fix for cartesian reflex error. only try this on the leader side as it increases the collision threshold on the robot.
+leader_robot_settings = leader_robot.get_robot()
+leader_robot_settings.set_collision_behavior(lower_torque_thresholds_acceleration = [x / 10 for x in [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]],
+                                             upper_torque_thresholds_acceleration = [x * 10 for x in[20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]],
+                                             lower_torque_thresholds_nominal = [x / 10 for x in [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]],
+                                             upper_torque_thresholds_nominal = [x * 10 for x in[20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]],
+                                             lower_force_thresholds_acceleration = [x / 10 for x in [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]], 
+                                             upper_force_thresholds_acceleration = [x * 10 for x in[20.0, 20.0, 20.0, 25.0, 25.0, 25.0]],
+                                             lower_force_thresholds_nominal = [x / 10 for x in [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]],
+                                             upper_force_thresholds_nominal = [x * 10 for x in[20.0, 20.0, 20.0, 25.0, 25.0, 25.0]])
+
 
 FOLLOWER_IP = '172.22.3.6'
 FOLLOWER_PORT = 5050
@@ -32,6 +41,7 @@ send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 #Create UDP sockect server for receiving data
 recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+recv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 recv_sock.bind((LEADER_IP, LEADER_PORT))
 
 
@@ -40,17 +50,7 @@ trqController = panda_py.controllers.AppliedTorque()
 leader_robot.start_controller(trqController)
 
 
-# subscriber to listen to follower data
-follower_state = None
-leader_state = None
-def listener(data):
-    print('received')
-    global follower_state
-    follower_state = pickle.loads(data)
-pub.subscribe(listener, 'follower_data')
-
-
-def calc_adaptive_trq(leader_robot_state, follower_state):
+def calc_adaptive_trq(leader_robot_state, follower_data):
 
     # PD gains
     pgain = 0.6 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
@@ -75,13 +75,13 @@ def calc_adaptive_trq(leader_robot_state, follower_state):
     return tau_desired
 
 
-def no_feedback(leader_robot_state, follower_state):
+def no_feedback(leader_robot_state, follower_data):
 
     tau_desired = np.zeros((7,))
     return tau_desired
 
 
-def bilateral_teleop(leader_robot_state, follower_robot_state):
+def bilateral_teleop(leader_robot_state, follower_data):
     pass
 
 
@@ -110,30 +110,38 @@ with leader_robot.create_context(frequency=60) as ctx1:
     while ctx1.ok():
 
         if keyboard.is_pressed('q'):
+            leader_robot.stop_controller()
+            recv_sock.close()
+            send_sock.close()
             break
         if keyboard.is_pressed('0'):
             trq_calc = modes['no_feedback']
             print('No force feedback activated')
+            while keyboard.is_pressed('0'): # prevent multiple presses
+                pass
         if keyboard.is_pressed('1'):
             trq_calc = modes['adaptive_guidance']
             print('Adaptive force feedback activated')
         if keyboard.is_pressed('2'):
             trq_calc = modes['bilateral_teleop']
-            pass
-        
+            pass  
     
         leader_state = leader_robot.get_state()
         leader_data = leader_state.q + leader_state.dq
         message = pickle.dumps(leader_data)
-        pub.sendMessage('leader_data', data=message)
-        # bytes = send_sock.sendto(message, (FOLLOWER_IP, FOLLOWER_PORT))
+        send_sock.sendto(message, (FOLLOWER_IP, FOLLOWER_PORT))
 
-        torques = trq_calc(leader_state, follower_state)
+        try:
+            follower_data, _ = recv_sock.recvfrom(1024)
+            follower_data = pickle.loads(follower_data)
+        except:
+            follower_data = leader_data
+
+        torques = trq_calc(leader_state, follower_data)
 
         trqController.set_control(torques)
 
 
 leader_robot.stop_controller()
-
 recv_sock.close()
 send_sock.close()
