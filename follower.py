@@ -50,9 +50,8 @@ def calc_torque(leader_data, follower_data):
 
     return torques
 
+
 def print_instructions():
-    print("(0) No force feedback")   
-    print("(1) Use virtual fixture force feedback")
     print("(q) Exit")
 
 
@@ -86,7 +85,9 @@ with follower_robot.create_context(frequency=60) as ctx2:
 
         trqController.set_control(torques)
 
-
-follower_robot.stop_controller()
-recv_sock.close()
-send_sock.close()
+try:
+    follower_robot.stop_controller()
+    recv_sock.close()
+    send_sock.close()
+except:
+    pass
