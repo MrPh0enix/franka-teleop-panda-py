@@ -7,6 +7,7 @@ import json
 import numpy as np
 import adaptive_positioning
 import keyboard
+import matplotlib.pyplot as plt
 
 
 
@@ -130,6 +131,18 @@ def bilateral_teleop_adaptive_guidance(leader_robot_state, follower_data):
     pass
 
 
+
+#Plotting functionality
+fig, axs = plt.subplots(7, 1)
+def plotting_func(torques, leader_data, follower_data):
+    ''' Function for generating graphs during teleoperation '''
+    Time = np.linspace(0, 1, 100)
+    for i in range(7):
+        # axs[i].plot
+        pass
+    
+
+
 modes = {
     'no_feedback' : no_feedback,
     'adaptive_guidance' : calc_adaptive_vfx_trq,
@@ -145,6 +158,7 @@ def print_instructions():
     print("(2) Adaptive guidance mode")
     print("(3) Bilateral teleoperation mode")
     print("(4) Bilateral teleop + Adaptive guidance mode")
+    print("(p) Activate\Deactivate plotting functionality")
     print("(q) Exit")
 
 
@@ -153,6 +167,7 @@ with leader_robot.create_context(frequency=frequency) as ctx1:
     print('Teleop leader running')
     print_instructions()
     trq_calc = modes['no_feedback']
+    plotting = False
 
     while ctx1.ok():
 
@@ -161,32 +176,42 @@ with leader_robot.create_context(frequency=frequency) as ctx1:
             recv_sock.close()
             send_sock.close()
             break
-        if keyboard.is_pressed('0'):
+        elif keyboard.is_pressed('0'):
             trq_calc = modes['no_feedback']
             print('\nNo force feedback activated')
             while keyboard.is_pressed('0'): # prevent multiple presses
                 time.sleep(0.05)
-        if keyboard.is_pressed('1'):
+        elif keyboard.is_pressed('1'):
             trq_calc = modes['static_guidance']
             print('\nStatic force feedback activated')
             while keyboard.is_pressed('1'): # prevent multiple presses
                 time.sleep(0.05)
-        if keyboard.is_pressed('2'):
+        elif keyboard.is_pressed('2'):
             trq_calc = modes['adaptive_guidance']
             print('\nAdaptive force feedback activated')
             while keyboard.is_pressed('2'): # prevent multiple presses
                 time.sleep(0.05)
-        if keyboard.is_pressed('3'):
+        elif keyboard.is_pressed('3'):
             trq_calc = modes['bilateral_teleop']
             print('\nBilateral teleop activated')
             while keyboard.is_pressed('3'): # prevent multiple presses
                 time.sleep(0.05) 
-        if keyboard.is_pressed('4'):
+        elif keyboard.is_pressed('4'):
             trq_calc = modes['adaptive + bilateral teleop combined']
             print('\nBilateral teleop + Adaptive guidance activated')
             while keyboard.is_pressed('4'): # prevent multiple presses
                 time.sleep(0.05) 
+        elif keyboard.is_pressed('p'):
+            if not plotting:
+                plotting = True
+                print('\nPlotting functionality activated')
+            else:
+                plotting = False
+                print('\nPlotting functionality deactivated')
+            while keyboard.is_pressed('p'): # prevent multiple presses
+                time.sleep(0.05) 
     
+
         leader_state = leader_robot.get_state()
         leader_data = leader_state.q + leader_state.dq
         message = pickle.dumps(leader_data)
@@ -198,10 +223,16 @@ with leader_robot.create_context(frequency=frequency) as ctx1:
             follower_data = pickle.loads(follower_data)
         except:
             follower_data = leader_data
+    
 
         torques = trq_calc(leader_state, follower_data)
 
+        if plotting:
+            plotting_func(torques, leader_data, follower_data)
+            plt.show()
+
         trqController.set_control(torques)
+
 
 
 try:
