@@ -9,8 +9,6 @@ import adaptive_positioning
 import keyboard
 
 
-# if len(sys.argv) != 5:
-#     raise ValueError("Provide python3 leader.py <follower_computer ip> <follower_computer port> <leader ip> <leader computer port>")
 
 with open('teleop_params.config', 'r') as teleop_params:
     config = json.load(teleop_params)
@@ -30,10 +28,11 @@ leader_robot_settings.set_collision_behavior(lower_torque_thresholds_acceleratio
                                              upper_force_thresholds_nominal = [x * 10 for x in[20.0, 20.0, 20.0, 25.0, 25.0, 25.0]])
 
 
-FOLLOWER_IP = '172.22.3.6'
-FOLLOWER_PORT = 5050
-LEADER_IP = '172.22.3.6'
-LEADER_PORT = 5051
+FOLLOWER_IP = config['follower_computer_ip']
+FOLLOWER_PORT = int(config['follower_computer_port'])
+LEADER_IP = config['leader_computer_ip']
+LEADER_PORT = int(config['leader_computer_port'])
+frequency = int(config["message_frequency"])
 
 # Create a UDP socket for sending data
 send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -52,8 +51,8 @@ leader_robot.start_controller(trqController)
 def calc_static_vfx_trq(leader_robot_state, follower_data):
     ''' adaptive guidance: adaptive guidance forces on the leader '''
     # PD gains
-    pgain = 0.6 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
-    dgain = 0.6 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+    pgain = 0.06 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
+    dgain = 0.06 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
     desired_pose, _ = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
@@ -66,10 +65,10 @@ def calc_static_vfx_trq(leader_robot_state, follower_data):
     
     tau_desired = tau_desired.reshape(-1)
 
-    # clipped to prevent undesirably high torques
-    min_values = np.array([-1.4, -1.1, -1.1, -1.4, -0.9, -0.8, -0.6])
-    max_values = np.array([1.4, 1.1, 1.1, 1.4, 0.9, 0.8, 0.6])
-    tau_desired = np.clip(tau_desired, min_values, max_values)
+    # # clippig for a strict force
+    # min_values = np.array([-1.7, -1.3, -1.3, -1.7, -1, -1, -0.8])
+    # max_values = np.array([1.7, 1.3, 1.3, 1.7, 1, 1, 0.8])
+    # tau_desired = np.clip(tau_desired, min_values, max_values)
 
     return tau_desired
 
@@ -77,26 +76,25 @@ def calc_static_vfx_trq(leader_robot_state, follower_data):
 def calc_adaptive_vfx_trq(leader_robot_state, follower_data):
     ''' adaptive guidance: adaptive guidance forces on the leader '''
     # PD gains
-    pgain = 0.6 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
-    dgain = 0.6 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+    pgain = 0.06 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
+    dgain = 0.06 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
     desired_pose, stdDev = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
     desired_pose = desired_pose.reshape(1, 7)
     pose_diff = desired_pose - leader_robot_state.q
-    tau_adapt = (pgain *  pose_diff) - dgain * leader_robot_state.dq
 
-    print(stdDev)
+    tau_adapt = ((pgain *  pose_diff) / (1 + stdDev)) - dgain * leader_robot_state.dq
 
     # Set desired torque
     tau_desired = tau_adapt
     
     tau_desired = tau_desired.reshape(-1)
 
-    # clipped to prevent undesirably high torques
-    min_values = np.array([-1.4, -1.1, -1.1, -1.4, -0.9, -0.8, -0.6])
-    max_values = np.array([1.4, 1.1, 1.1, 1.4, 0.9, 0.8, 0.6])
-    tau_desired = np.clip(tau_desired, min_values, max_values)
+    # # clipping for a strict force
+    # min_values = np.array([-1.7, -1.3, -1.3, -1.7, -1, -1, -0.8])
+    # max_values = np.array([1.7, 1.3, 1.3, 1.7, 1, 1, 0.8])
+    # tau_desired = np.clip(tau_desired, min_values, max_values)
 
     return tau_desired
 
@@ -126,7 +124,9 @@ def bilateral_teleop(leader_robot_state, follower_data):
 
     return torques
 
-def bilateral_teleop_adaptive_guidance_combined(leader_robot_state, follower_data):
+
+def bilateral_teleop_adaptive_guidance(leader_robot_state, follower_data):
+    # need to implement
     pass
 
 
@@ -135,7 +135,7 @@ modes = {
     'adaptive_guidance' : calc_adaptive_vfx_trq,
     'static_guidance' : calc_static_vfx_trq,
     'bilateral_teleop' : bilateral_teleop,
-    'adaptive + bilateral teleop combined' : bilateral_teleop_adaptive_guidance_combined,
+    'adaptive + bilateral teleop combined' : bilateral_teleop_adaptive_guidance,
 }
 
 
@@ -148,7 +148,7 @@ def print_instructions():
     print("(q) Exit")
 
 
-with leader_robot.create_context(frequency=60) as ctx1:
+with leader_robot.create_context(frequency=frequency) as ctx1:
 
     print('Teleop leader running')
     print_instructions()
@@ -157,7 +157,6 @@ with leader_robot.create_context(frequency=60) as ctx1:
     while ctx1.ok():
 
         if keyboard.is_pressed('q'):
-            print('in')
             leader_robot.stop_controller()
             recv_sock.close()
             send_sock.close()
@@ -166,7 +165,6 @@ with leader_robot.create_context(frequency=60) as ctx1:
             trq_calc = modes['no_feedback']
             print('\nNo force feedback activated')
             while keyboard.is_pressed('0'): # prevent multiple presses
-                print('in')
                 time.sleep(0.05)
         if keyboard.is_pressed('1'):
             trq_calc = modes['static_guidance']
@@ -193,6 +191,7 @@ with leader_robot.create_context(frequency=60) as ctx1:
         leader_data = leader_state.q + leader_state.dq
         message = pickle.dumps(leader_data)
         send_sock.sendto(message, (FOLLOWER_IP, FOLLOWER_PORT))
+        
 
         try:
             follower_data, _ = recv_sock.recvfrom(1024)
@@ -203,6 +202,7 @@ with leader_robot.create_context(frequency=60) as ctx1:
         torques = trq_calc(leader_state, follower_data)
 
         trqController.set_control(torques)
+
 
 try:
     leader_robot.stop_controller()

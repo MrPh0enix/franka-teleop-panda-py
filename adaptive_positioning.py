@@ -18,19 +18,16 @@ timeList = []
 
 '''     Import Data from demonstrations    '''
 for demo in range(1, Nd+1):
-            # Load Franka data for the demonstration
-            joints_raw, times_raw= Full_ProMP.Franka_data2('STRAIGHT_LINE_DEMOS/', demo)
-            # Reduce data to 100 samples
-            indices = np.linspace(0, len(joints_raw)-1, 50, dtype = int)
-            joints_raw = np.asarray([joints_raw[i] for i in indices])
-            times_raw = np.asarray([times_raw[i] for i in indices])
-            # Append data to lists
-            trajectoriesList.append(joints_raw)
-            timeList.append(times_raw)
+    # Load Franka data for the demonstration
+    joints_raw, times_raw= Full_ProMP.Franka_data2('STRAIGHT_LINE_DEMOS/', demo)
+    # Reduce data to 100 samples
+    indices = np.linspace(0, len(joints_raw)-1, 100, dtype = int)
+    joints_raw = np.asarray([joints_raw[i] for i in indices])
+    times_raw = np.asarray([times_raw[i] for i in indices])
+    # Append data to lists
+    trajectoriesList.append(joints_raw)
+    timeList.append(times_raw)
 
-
-# # Convert trajectories list to NumPy array
-# joints_raw = np.array(trajectoriesList)
 
 # Get the number of data points
 n_data = len(joints_raw)
@@ -40,8 +37,6 @@ Time = np.linspace(0, 1, n_data)
     
 '''     ProMP    '''
 # Create ProMP object
-# print(f'{basis}, {dof}, {n_data}')
-
 ProMP_ = ProMp(basis, dof, n_data)
 
 # Create a ProMP object for learning
@@ -61,7 +56,6 @@ meanTraj, covTraj = ProMP_trained.trajectory_mean_cov(Time)
 # Get mean and standard deviation of the smoothed trajectory
 meanTraj, stdTraj = ProMP_trained.trajectory_mean_std(Time)
 
-# promp_trajectory.reshape((100, 7))
 
 
 
@@ -85,9 +79,10 @@ def DtW(real_time_joint_angles):
     
     # Fetch the desired trajectory at corresponding iterations
     desired_joint_positions = meanTraj[corresponding_iterations]
+    current_stdDev = stdTraj[corresponding_iteration]
     desired_joint_positions = np.squeeze(desired_joint_positions)
     
-    return desired_joint_positions
+    return desired_joint_positions, current_stdDev
 
 
 def euclidean_dist_pos(real_time_joint_angles):
