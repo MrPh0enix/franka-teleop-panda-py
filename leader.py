@@ -8,6 +8,8 @@ import numpy as np
 import adaptive_positioning
 import keyboard
 import matplotlib.pyplot as plt
+import os
+import csv
 
 
 
@@ -49,14 +51,35 @@ trqController = panda_py.controllers.AppliedTorque()
 leader_robot.start_controller(trqController)
 
 
+#global variables and function for logging
+traj_data = [['Time_step', 'act_pos1', 'act_pos2', 'act_pos3', 'act_pos4', 'act_pos5', 'act_pos6', 'act_pos7', 
+            'des_pos1', 'des_pos2', 'des_pos3', 'des_pos4', 'des_pos5', 'des_pos6', 'des_pos7', 
+            'trq1', 'trq2', 'trq3', 'trq4', 'trq5', 'trq6', 'trq7', 'mode']]
+recording = False
+
+def save_recordings():
+    global traj_data
+    recording_no = len(os.listdir('RECORDINGS'))+1
+    with open(f'RECORDINGS/recording{recording_no}.csv', "w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerows(traj_data)  
+    os.chmod(f'RECORDINGS/recording{recording_no}.csv', 0o644)
+    traj_data = [['Time_step', 'act_pos1', 'act_pos2', 'act_pos3', 'act_pos4', 'act_pos5', 'act_pos6', 'act_pos7', 
+                'des_pos1', 'des_pos2', 'des_pos3', 'des_pos4', 'des_pos5', 'des_pos6', 'des_pos7', 
+                'trq1', 'trq2', 'trq3', 'trq4', 'trq5', 'trq6', 'trq7', 'mode']]
+
+
+
+
 def calc_static_vfx_trq(leader_robot_state, follower_data):
     ''' adaptive guidance: adaptive guidance forces on the leader '''
+    global traj_data
     # PD gains
     pgain = 0.06 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
     dgain = 0.06 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
-    desired_pose, _ = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
+    desired_pose, _, itr = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
     desired_pose = desired_pose.reshape(1, 7)
     pose_diff = desired_pose - leader_robot_state.q
     tau_adapt = pgain *  pose_diff - dgain * leader_robot_state.dq
@@ -65,6 +88,11 @@ def calc_static_vfx_trq(leader_robot_state, follower_data):
     tau_desired = tau_adapt
     
     tau_desired = tau_desired.reshape(-1)
+
+
+    if recording:
+        current_state = [itr] + leader_robot_state.q + [x for x in desired_pose.flatten()] + [x for x in tau_desired.flatten()] + ['static_guidance']
+        traj_data.append(current_state)
 
     # # clippig for a strict force
     # min_values = np.array([-1.7, -1.3, -1.3, -1.7, -1, -1, -0.8])
@@ -76,12 +104,13 @@ def calc_static_vfx_trq(leader_robot_state, follower_data):
 
 def calc_adaptive_vfx_trq(leader_robot_state, follower_data):
     ''' adaptive guidance: adaptive guidance forces on the leader '''
+    global traj_data
     # PD gains
     pgain = 0.06 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
     dgain = 0.06 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
-    desired_pose, stdDev = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
+    desired_pose, stdDev, itr = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
     desired_pose = desired_pose.reshape(1, 7)
     pose_diff = desired_pose - leader_robot_state.q
 
@@ -91,6 +120,10 @@ def calc_adaptive_vfx_trq(leader_robot_state, follower_data):
     tau_desired = tau_adapt
     
     tau_desired = tau_desired.reshape(-1)
+
+    if recording:
+        current_state = [itr] + leader_robot_state.q + [x for x in desired_pose.flatten()] + [x for x in tau_desired.flatten()] + ['adaptive_guidance']
+        traj_data.append(current_state)
 
     # # clipping for a strict force
     # min_values = np.array([-1.7, -1.3, -1.3, -1.7, -1, -1, -0.8])
@@ -130,16 +163,6 @@ def bilateral_teleop_adaptive_guidance(leader_robot_state, follower_data):
     # need to implement
     pass
 
-
-
-#Plotting functionality
-fig, axs = plt.subplots(7, 1)
-def plotting_func(torques, leader_data, follower_data):
-    ''' Function for generating graphs during teleoperation '''
-    Time = np.linspace(0, 1, 100)
-    for i in range(7):
-        # axs[i].plot
-        pass
     
 
 
@@ -158,7 +181,7 @@ def print_instructions():
     print("(2) Adaptive guidance mode")
     print("(3) Bilateral teleoperation mode")
     print("(4) Bilateral teleop + Adaptive guidance mode")
-    print("(p) Activate\Deactivate plotting functionality")
+    print("(r) Activate\Deactivate recording functionality")
     print("(q) Exit")
 
 
@@ -167,7 +190,6 @@ with leader_robot.create_context(frequency=frequency) as ctx1:
     print('Teleop leader running')
     print_instructions()
     trq_calc = modes['no_feedback']
-    plotting = False
 
     while ctx1.ok():
 
@@ -201,14 +223,15 @@ with leader_robot.create_context(frequency=frequency) as ctx1:
             print('\nBilateral teleop + Adaptive guidance activated')
             while keyboard.is_pressed('4'): # prevent multiple presses
                 time.sleep(0.05) 
-        elif keyboard.is_pressed('p'):
-            if not plotting:
-                plotting = True
-                print('\nPlotting functionality activated')
+        elif keyboard.is_pressed('r'):
+            if not recording:
+                recording = True
+                print('\nRecording functionality activated')
             else:
-                plotting = False
-                print('\nPlotting functionality deactivated')
-            while keyboard.is_pressed('p'): # prevent multiple presses
+                recording = False
+                save_recordings()
+                print('\nRecording functionality deactivated')
+            while keyboard.is_pressed('r'): # prevent multiple presses
                 time.sleep(0.05) 
     
 
@@ -226,10 +249,6 @@ with leader_robot.create_context(frequency=frequency) as ctx1:
     
 
         torques = trq_calc(leader_state, follower_data)
-
-        if plotting:
-            plotting_func(torques, leader_data, follower_data)
-            plt.show()
 
         trqController.set_control(torques)
 

@@ -82,7 +82,7 @@ def DtW(real_time_joint_angles):
     current_stdDev = stdTraj[corresponding_iteration]
     desired_joint_positions = np.squeeze(desired_joint_positions)
     
-    return desired_joint_positions, current_stdDev
+    return desired_joint_positions, current_stdDev, corresponding_iteration
 
 
 def euclidean_dist_pos(real_time_joint_angles):
@@ -107,7 +107,7 @@ def euclidean_dist_pos(real_time_joint_angles):
     current_stdDev = stdTraj[corresponding_iteration]
     desired_joint_positions = np.squeeze(desired_joint_positions)
     
-    return desired_joint_positions, current_stdDev
+    return desired_joint_positions, current_stdDev, corresponding_iteration
 
 
 def get_init_pos():
