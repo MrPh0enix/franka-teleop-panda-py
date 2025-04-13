@@ -160,8 +160,21 @@ def bilateral_teleop(leader_robot_state, follower_data):
 
 
 def bilateral_teleop_adaptive_guidance(leader_robot_state, follower_data):
-    # need to implement
-    pass
+    ''' combines bilateral teleop with adaptive guidance according to a condition
+    This will enable us to detect collisions'''
+    threshold = 0.1
+    leader_pos = leader_robot_state.q
+    follower_pos = follower_data[:7]
+    pose_diff = follower_pos - leader_pos
+    
+    if any(abs(pose_diff) > threshold):
+        # Use bilateral teleop
+        torques = bilateral_teleop(leader_robot_state, follower_data)
+    else:
+        # Use adaptive guidance
+        torques = calc_adaptive_vfx_trq(leader_robot_state, follower_data)
+    
+    return torques
 
     
 
