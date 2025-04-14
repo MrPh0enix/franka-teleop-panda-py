@@ -6,6 +6,7 @@ import json
 import adaptive_positioning
 import panda_py.controllers
 import keyboard
+import time
 
 
 
@@ -62,11 +63,11 @@ with follower_robot.create_context(frequency=frequency) as ctx2:
     
     while ctx2.ok():
 
-        if keyboard.is_pressed('q'):
-            follower_robot.stop_controller()
-            recv_sock.close()
-            send_sock.close()
-            break
+        # if keyboard.is_pressed('q'):
+        #     follower_robot.stop_controller()
+        #     recv_sock.close()
+        #     send_sock.close()
+        #     break
         
         #get follower data and send it to leader
         follower_state = follower_robot.get_state()
@@ -78,6 +79,9 @@ with follower_robot.create_context(frequency=frequency) as ctx2:
             #get leader data
             data, leader_addr = recv_sock.recvfrom(1024)
             leader_data = pickle.loads(data)
+            if leader_data == 'STOP':
+                time.sleep(0.5)
+                break
         except:
             leader_data = follower_data
 

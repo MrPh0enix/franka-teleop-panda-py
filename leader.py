@@ -162,7 +162,7 @@ def bilateral_teleop(leader_robot_state, follower_data):
 def bilateral_teleop_adaptive_guidance(leader_robot_state, follower_data):
     ''' combines bilateral teleop with adaptive guidance according to a condition
     This will enable us to detect collisions'''
-    threshold = 0.1
+    threshold = 0.3
     leader_pos = leader_robot_state.q
     follower_pos = follower_data[:7]
     pose_diff = follower_pos - leader_pos
@@ -208,8 +208,8 @@ with leader_robot.create_context(frequency=frequency) as ctx1:
 
         if keyboard.is_pressed('q'):
             leader_robot.stop_controller()
-            recv_sock.close()
-            send_sock.close()
+            message = pickle.dumps('STOP')
+            send_sock.sendto(message, (FOLLOWER_IP, FOLLOWER_PORT))
             break
         elif keyboard.is_pressed('0'):
             trq_calc = modes['no_feedback']
