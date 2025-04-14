@@ -211,7 +211,7 @@ class ProMp:
 ''' Franka data set from demonstrations '''
 
 def Franka_data( path, n):
-            
+    ''' data loader for old demos '''        
     joints = []
     poses = []
     times = []
@@ -233,7 +233,7 @@ def Franka_data( path, n):
     return joints, poses, times
 
 def Franka_data2( path, n):
-            
+    ''' data loader for new demos '''   
     joints = []
     times = []
     output_path = ('%soutput%s.csv' % (path, n))
@@ -305,13 +305,13 @@ if __name__ == "__main__":
     fig, axs = plt.subplots(dof, 1)
     for demo in range(1,Nd+1):
         # joints_raw, poses_raw, times_raw = Franka_data('/home/pszkb3/DEMONSTRATIONS/', demo)
-        joints_raw, times_raw = Franka_data2('NEW_DEMOS/', demo)
-        # joints_raw_100 = numpy.asarray(joints_raw)
-        # times_raw_100 = numpy.asarray(times_raw)
-        joints_raw = np.asarray(joints_raw[:350])
-        times_raw = np.asarray(times_raw[:350])
-        # joints_raw = joints_raw_100[slice(0,350),:]
-        # times_raw  = times_raw_100[slice(0,350)]
+        joints_raw, times_raw = Franka_data2('STRAIGHT_LINE_DEMOS/', demo)
+        
+        # Reduce data to 100 samples
+        indices = np.linspace(0, len(joints_raw)-1, 100, dtype = int)
+        joints_raw = np.asarray([joints_raw[i] for i in indices])
+        times_raw = np.asarray([times_raw[i] for i in indices])
+        
         trajectoriesList.append(joints_raw)
         timeList.append(times_raw)
 
