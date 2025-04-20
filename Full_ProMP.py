@@ -321,7 +321,7 @@ if __name__ == "__main__":
             # axs[i].legend(("ProMP Trajctory", "Demonstration"))
             # axs[i].set_legend(("ProMP Trajctory", "Demonstration"))
     n_data = (len(joints_raw))
-    print(n_data)
+    
     Time = np.linspace(0, 1, n_data)
 
     Trajectory = np.zeros((n_data  , dof))
@@ -349,33 +349,43 @@ if __name__ == "__main__":
     # Get mean and standard deviation of the smoothed trajectory
     meanTraj, stdTraj = proMPSmooth.trajectory_mean_std(Time)
     
+    
+    # for i in range(dof):
+    #     axs[i].plot(Time, trajectories[:, i, :], '--', label="demo")
+    #     #axs[i].plot(T, joints_raw[:, i], 'r')
+    #     axs[i].set_ylabel('q'+str(i))
+    #     axs[i].set_xlabel('time')
+    #     axs[i].legend(("ProMP Trajctory", "Demonstration"))
 
+    # axs[0].set_title(' Trajectory Sampling')
     
+    
+    fig2, axs2 = plt.subplots(dof, 1, figsize=(6, 10))
     for i in range(dof):
-        axs[i].plot(Time, trajectories[:, i, :], '--', label="demo")
-        #axs[i].plot(T, joints_raw[:, i], 'r')
-        axs[i].set_ylabel('q'+str(i))
-        axs[i].set_xlabel('time')
-        axs[i].legend(("ProMP Trajctory", "Demonstration"))
-
-    axs[0].set_title(' Trajectory Sampling')
-    
-    
-    fig2, axs2 = plt.subplots(dof, 1)
-    for i in range(dof):
-        axs2[i].plot(Time, meanTraj[:, i], '--', label="demo")
-        axs2[i].set_ylabel('q'+str(i))
-        axs2[i].set_xlabel('time')
+        axs2[i].plot(Time, meanTraj[:, i], '--', label="mean")
+        axs2[i].set_title(f'Joint {i}', loc='left', fontsize=11)
+        axs2[i].plot(Time, trajectories[:, i, :], '--', label="sample trajectory")
+        # axs2[i].set_ylabel('q'+str(i))
+        # axs2[i].set_xlabel('time')
         axs2[i].fill_between(Time, meanTraj[:, i] - stdTraj[:, i], meanTraj[:, i] + stdTraj[:, i], 
-                 color='b', alpha=0.2, label="Std Dev")
+                 color='b', alpha=0.2, label="variance")
+        
+        if i == 3:  # middle subplot for balance
+            axs2[i].set_ylabel('Positions', fontsize=14)
+            
+        if i == 0:
+            axs2[i].legend(loc='upper right', fontsize='small')
+        
+    axs2[-1].set_xlabel('Time',  fontsize=14)
     
-    axs2[0].set_title('Mean Trajectories')
+    # axs2[0].set_title('Mean Trajectories')
 
 
-    fig3, axs3 = plt.subplots(dof, 1)
-    for i in range(dof):
-        axs3[i].plot(Time, Trajectory[:, i])
-        axs3[i].plot(Time, Reconstrucetd_Trajectory[:, i])
-        axs3[i].legend(("Inital Trajectory", "ProMP Trajctory"))
+    # fig3, axs3 = plt.subplots(dof, 1)
+    # for i in range(dof):
+    #     axs3[i].plot(Time, Trajectory[:, i])
+    #     axs3[i].plot(Time, Reconstrucetd_Trajectory[:, i])
+    #     axs3[i].legend(("Inital Trajectory", "ProMP Trajctory"))
 
+    plt.subplots_adjust(hspace=0.7)
     plt.show()

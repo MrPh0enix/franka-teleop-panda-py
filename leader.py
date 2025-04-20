@@ -108,13 +108,14 @@ def calc_adaptive_vfx_trq(leader_robot_state, follower_data):
     # PD gains
     pgain = 0.06 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
     dgain = 0.06 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+    again = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float64)
 
     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
     desired_pose, stdDev, itr = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
     desired_pose = desired_pose.reshape(1, 7)
     pose_diff = desired_pose - leader_robot_state.q
 
-    tau_adapt = ((pgain *  pose_diff) / (1 + stdDev)) - dgain * leader_robot_state.dq
+    tau_adapt = ((pgain *  pose_diff) / (1 + (again * stdDev))) - dgain * leader_robot_state.dq
 
     # Set desired torque
     tau_desired = tau_adapt
