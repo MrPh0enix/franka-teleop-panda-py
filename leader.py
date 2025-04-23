@@ -65,7 +65,7 @@ def save_recordings():
         writer.writerows(traj_data)  
     os.chmod(f'RECORDINGS/recording{recording_no}.csv', 0o644)
     traj_data = [['Time_step', 'act_pos1', 'act_pos2', 'act_pos3', 'act_pos4', 'act_pos5', 'act_pos6', 'act_pos7', 
-                'des_pos1', 'des_pos2', 'des_pos3', 'des_pos4', 'des_pos5', 'des_pos6', 'des_pos7', 
+                'des_pos1', 'des_pos2', 'des_pos3', 'des_pos4', 'des_pos5', 'des_pos6', 'des_pos7',
                 'trq1', 'trq2', 'trq3', 'trq4', 'trq5', 'trq6', 'trq7', 'mode']]
 
 
@@ -75,11 +75,11 @@ def calc_static_vfx_trq(leader_robot_state, follower_data):
     ''' adaptive guidance: adaptive guidance forces on the leader '''
     global traj_data
     # PD gains
-    pgain = 0.06 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
-    dgain = 0.06 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+    pgain = 0.1 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #default to 0.06 after test
+    dgain = 0.1 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
-    desired_pose, _, itr = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
+    desired_pose, _, itr = adaptive_positioning.euclidean_dist_pos2(current_pose) # we only need the desired pose
     desired_pose = desired_pose.reshape(1, 7)
     pose_diff = desired_pose - leader_robot_state.q
     tau_adapt = pgain *  pose_diff - dgain * leader_robot_state.dq
@@ -91,7 +91,7 @@ def calc_static_vfx_trq(leader_robot_state, follower_data):
 
 
     if recording:
-        current_state = [itr] + leader_robot_state.q + [x for x in desired_pose.flatten()] + [x for x in tau_desired.flatten()] + ['static_guidance']
+        current_state = [itr] + leader_robot_state.q + [x for x in desired_pose.flatten()] + [x for x in tau_desired.flatten()] + [x for x in tau_desired.flatten()] + ['static_guidance']
         traj_data.append(current_state)
 
     # # clippig for a strict force
@@ -106,8 +106,8 @@ def calc_adaptive_vfx_trq(leader_robot_state, follower_data):
     ''' adaptive guidance: adaptive guidance forces on the leader '''
     global traj_data
     # PD gains
-    pgain = 0.06 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
-    dgain = 0.06 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+    pgain = 0.1 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #default to 0.06 after test
+    dgain = 0.1 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
     desired_pose, stdDev, itr = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
@@ -124,11 +124,6 @@ def calc_adaptive_vfx_trq(leader_robot_state, follower_data):
     if recording:
         current_state = [itr] + leader_robot_state.q + [x for x in desired_pose.flatten()] + [x for x in tau_desired.flatten()] + ['adaptive_guidance']
         traj_data.append(current_state)
-
-    # # clipping for a strict force
-    # min_values = np.array([-1.7, -1.3, -1.3, -1.7, -1, -1, -0.8])
-    # max_values = np.array([1.7, 1.3, 1.3, 1.7, 1, 1, 0.8])
-    # tau_desired = np.clip(tau_desired, min_values, max_values)
 
     return tau_desired
 
@@ -151,9 +146,6 @@ def bilateral_teleop(leader_robot_state, follower_data):
     for i in range(7):
         torques[i] = pgain[i] * (follower_data[i] - leader_robot_state.q[i]) - dgain[i] * (leader_robot_state.dq[i])
 
-    # pose_diff = follower_data[:7] - leader_robot_state.q
-    # torques = pgain * pose_diff - dgain * leader_robot_state.dq
-
     torques = np.array(torques)
 
     return torques
@@ -165,7 +157,7 @@ def bilateral_teleop_adaptive_guidance(leader_robot_state, follower_data):
     threshold = 0.3
     leader_pos = leader_robot_state.q
     follower_pos = follower_data[:7]
-    pose_diff = follower_pos - leader_pos
+    pose_diff = np.array(follower_pos) - np.array(leader_pos)
     
     if any(abs(pose_diff) > threshold):
         # Use bilateral teleop
@@ -176,6 +168,36 @@ def bilateral_teleop_adaptive_guidance(leader_robot_state, follower_data):
     
     return torques
 
+
+
+# def calc_static_vfx_trq_onlyRecording(leader_robot_state, follower_data):
+#     ''' adaptive guidance: adaptive guidance forces on the leader '''
+#     global traj_data
+#     # PD gains
+#     pgain = 0.06 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #originally 0.0003
+#     dgain = 0.06 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+
+#     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
+#     desired_pose, stdDev, itr = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
+#     desired_pose = desired_pose.reshape(1, 7)
+#     pose_diff = desired_pose - leader_robot_state.q
+#     tau_adapt = pgain *  pose_diff - dgain * leader_robot_state.dq
+
+#     # Set desired torque
+#     tau_desired_std = tau_adapt.reshape(-1)
+
+#     tau_adapt = ((pgain *  pose_diff) / (1 + stdDev)) - dgain * leader_robot_state.dq
+
+#     tau_desired_adt = tau_adapt.reshape(-1)
+
+#     if recording:
+#         current_state = [itr] + leader_robot_state.q + [x for x in desired_pose.flatten()] + [x for x in tau_desired_std.flatten()] + [x for x in tau_desired_adt.flatten()] + ['static_guidance + adaptive_guidance']
+#         traj_data.append(current_state)
+
+
+#     return tau_desired_std
+
+
     
 
 
@@ -185,6 +207,7 @@ modes = {
     'static_guidance' : calc_static_vfx_trq,
     'bilateral_teleop' : bilateral_teleop,
     'adaptive + bilateral teleop combined' : bilateral_teleop_adaptive_guidance,
+    # 'trq_record': calc_static_vfx_trq_onlyRecording,
 }
 
 
@@ -236,6 +259,11 @@ with leader_robot.create_context(frequency=frequency) as ctx1:
             print('\nBilateral teleop + Adaptive guidance activated')
             while keyboard.is_pressed('4'): # prevent multiple presses
                 time.sleep(0.05) 
+        # elif keyboard.is_pressed('5'):
+        #     trq_calc = modes['trq_record']
+        #     print('\nTrq recording mode')
+        #     while keyboard.is_pressed('5'): # prevent multiple presses
+        #         time.sleep(0.05)       
         elif keyboard.is_pressed('r'):
             if not recording:
                 recording = True
