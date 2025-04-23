@@ -191,7 +191,6 @@ class ProMp:
         return trajectory_mean, stdTrajectory
 
     # Joint Conditioning
-
     def jointSpaceConditioning(self, time, desired_position, desired_var):
 
         step = (np.linspace(0, 1, 1)) 
@@ -305,7 +304,7 @@ if __name__ == "__main__":
     fig, axs = plt.subplots(dof, 1)
     for demo in range(1,Nd+1):
         # joints_raw, poses_raw, times_raw = Franka_data('/home/pszkb3/DEMONSTRATIONS/', demo)
-        joints_raw, times_raw = Franka_data2('STRAIGHT_LINE_DEMOS/', demo)
+        joints_raw, times_raw = Franka_data2('NEW_DEMOS/', demo)
         
         # Reduce data to 100 samples
         indices = np.linspace(0, len(joints_raw)-1, 100, dtype = int)
@@ -321,7 +320,6 @@ if __name__ == "__main__":
             # axs[i].legend(("ProMP Trajctory", "Demonstration"))
             # axs[i].set_legend(("ProMP Trajctory", "Demonstration"))
     n_data = (len(joints_raw))
-    print(n_data)
     Time = np.linspace(0, 1, n_data)
 
     Trajectory = np.zeros((n_data  , dof))
@@ -349,6 +347,10 @@ if __name__ == "__main__":
     # Get mean and standard deviation of the smoothed trajectory
     meanTraj, stdTraj = proMPSmooth.trajectory_mean_std(Time)
     
+    condition_pos = [0.8632710863534817, 0.2635637967515765, -0.9615780671185145, -1.937763639918545, 0.24814595905939738, 2.2066593839592374, 0.586055133572883]
+    condition_var = [0.17643179, 0.25017093, 0.28268008, 0.04898373, 0.35696326, 0.1773813, 0.18155298]
+    ProMP_conditioned = proMPSmooth.jointSpaceConditioning(2, condition_pos, condition_var)
+    cond_meanTraj, cond_stdTraj = ProMP_conditioned.trajectory_mean_std(Time)
 
     
     for i in range(dof):
@@ -377,5 +379,18 @@ if __name__ == "__main__":
         axs3[i].plot(Time, Trajectory[:, i])
         axs3[i].plot(Time, Reconstrucetd_Trajectory[:, i])
         axs3[i].legend(("Inital Trajectory", "ProMP Trajctory"))
+
+    
+    fig4, axs4 = plt.subplots(dof, 1)
+    for i in range(dof):
+        axs4[i].plot(Time, cond_meanTraj[:, i], '--', label="demo")
+        axs4[i].set_ylabel('q'+str(i))
+        axs4[i].set_xlabel('time')
+        axs4[i].fill_between(Time, cond_meanTraj[:, i] - cond_stdTraj[:, i], cond_meanTraj[:, i] + cond_stdTraj[:, i], 
+                 color='b', alpha=0.2, label="Std Dev")
+    
+    axs4[0].set_title('Mean conditioned Trajectories')
+    
+
 
     plt.show()

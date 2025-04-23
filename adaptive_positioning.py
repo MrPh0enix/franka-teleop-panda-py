@@ -57,6 +57,12 @@ meanTraj, covTraj = ProMP_trained.trajectory_mean_cov(Time)
 meanTraj, stdTraj = ProMP_trained.trajectory_mean_std(Time)
 
 
+condition_pos = [0.8632710863534817, 0.2635637967515765, -0.9615780671185145, -1.937763639918545, 0.24814595905939738, 2.2066593839592374, 0.586055133572883]
+condition_var = [0.17643179, 0.25017093, 0.28268008, 0.04898373, 0.35696326, 0.1773813, 0.18155298]
+ProMP_conditioned = ProMP_trained.jointSpaceConditioning(2, condition_pos, condition_var)
+cond_meanTraj, cond_stdTraj = ProMP_conditioned.trajectory_mean_std(Time)
+
+
 
 
 def DtW(real_time_joint_angles):

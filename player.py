@@ -29,8 +29,10 @@ trqController = panda_py.controllers.AppliedTorque()
 leader_robot.start_controller(trqController)
 
 
-K_p = [20, 15, 30, 20, 10, 4, 4]
-K_d = [0.7, 0.02, 0.7, 0.7, 0.3, 0.3, 0.3]
+# K_p = [20, 15, 30, 20, 10, 4, 4]
+# K_d = [0.7, 0.02, 0.7, 0.7, 0.3, 0.3, 0.3]
+K_p = 0.07 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
+K_d = 0.07 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
 
 for row in rows[1:]:
