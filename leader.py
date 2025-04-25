@@ -75,11 +75,11 @@ def calc_static_vfx_trq(leader_robot_state, follower_data):
     ''' adaptive guidance: adaptive guidance forces on the leader '''
     global traj_data
     # PD gains
-    pgain = 0.1 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #default to 0.06 after test
+    pgain = 0.1 * np.array([600.0, 800.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #default to 0.06 after test
     dgain = 0.1 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
-    desired_pose, _, itr = adaptive_positioning.euclidean_dist_pos2(current_pose) # we only need the desired pose
+    desired_pose, _, itr = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
     desired_pose = desired_pose.reshape(1, 7)
     pose_diff = desired_pose - leader_robot_state.q
     tau_adapt = pgain *  pose_diff - dgain * leader_robot_state.dq
@@ -106,11 +106,11 @@ def calc_adaptive_vfx_trq(leader_robot_state, follower_data):
     ''' adaptive guidance: adaptive guidance forces on the leader '''
     global traj_data
     # PD gains
-    pgain = 0.1 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #default to 0.06 after test
+    pgain = 0.1 * np.array([600.0, 800.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64) #default to 0.06 after test
     dgain = 0.1 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
-    desired_pose, stdDev, itr = adaptive_positioning.euclidean_dist_pos2(current_pose) # we only need the desired pose
+    desired_pose, stdDev, itr = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
     desired_pose = desired_pose.reshape(1, 7)
     pose_diff = desired_pose - leader_robot_state.q
 
@@ -140,7 +140,7 @@ def bilateral_teleop(leader_robot_state, follower_data):
     torques = [0, 0, 0, 0, 0, 0, 0]
 
     # PD gains
-    pgain = 0.06 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
+    pgain = 0.06 * np.array([600.0, 800.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
     dgain = 0.06 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
     for i in range(7):

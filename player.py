@@ -16,7 +16,7 @@ leader_robot = panda_py.Panda(config["leader_robot_ip"])
 # follower_robot = panda_py.Panda(config['follower_robot_ip'])
 
 
-with open("output1.csv", "r") as file:
+with open("mean.csv", "r") as file:
     reader = csv.reader(file)
     rows = [row for row in reader]
     first_pos = rows[1][1:]
@@ -31,7 +31,7 @@ leader_robot.start_controller(trqController)
 
 # K_p = [20, 15, 30, 20, 10, 4, 4]
 # K_d = [0.7, 0.02, 0.7, 0.7, 0.3, 0.3, 0.3]
-K_p = 0.07 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
+K_p = 0.07 * np.array([600.0, 800.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64)
 K_d = 0.07 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
 

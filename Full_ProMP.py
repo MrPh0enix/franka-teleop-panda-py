@@ -307,7 +307,7 @@ if __name__ == "__main__":
         joints_raw, times_raw = Franka_data2('NEW_DEMOS/', demo)
         
         # Reduce data to 100 samples
-        indices = np.linspace(0, len(joints_raw)-1, 100, dtype = int)
+        indices = np.linspace(0, len(joints_raw)-1, 150, dtype = int)
         joints_raw = np.asarray([joints_raw[i] for i in indices])
         times_raw = np.asarray([times_raw[i] for i in indices])
         
@@ -347,10 +347,21 @@ if __name__ == "__main__":
     # Get mean and standard deviation of the smoothed trajectory
     meanTraj, stdTraj = proMPSmooth.trajectory_mean_std(Time)
     
-    condition_pos = [0.8632710863534817, 0.2635637967515765, -0.9615780671185145, -1.937763639918545, 0.24814595905939738, 2.2066593839592374, 0.586055133572883]
-    condition_var = [0.17643179, 0.25017093, 0.28268008, 0.04898373, 0.35696326, 0.1773813, 0.18155298]
-    ProMP_conditioned = proMPSmooth.jointSpaceConditioning(2, condition_pos, condition_var)
-    cond_meanTraj, cond_stdTraj = ProMP_conditioned.trajectory_mean_std(Time)
+    # condition_pos = [0.8632710863534817, 0.2635637967515765, -0.9615780671185145, -1.937763639918545, 0.24814595905939738, 2.2066593839592374, 0.586055133572883]
+    # condition_var = [0.17643179, 0.25017093, 0.28268008, 0.04898373, 0.35696326, 0.1773813, 0.18155298]
+    # ProMP_conditioned = proMPSmooth.jointSpaceConditioning(2, condition_pos, condition_var)
+    # cond_meanTraj, cond_stdTraj = ProMP_conditioned.trajectory_mean_std(Time)
+
+    recordings = [['Time', 'pos1', 'pos2', 'pos3', 'pos4', 'pos5', 'pos6', 'pos7']]
+
+    for itx, i in enumerate(trajectories):
+        step = [itx] + [x[0] for x in i]
+        
+        recordings.append(step)
+
+    with open(f'mean.csv', "w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerows(recordings)  
 
     
     for i in range(dof):
@@ -381,15 +392,15 @@ if __name__ == "__main__":
         axs3[i].legend(("Inital Trajectory", "ProMP Trajctory"))
 
     
-    fig4, axs4 = plt.subplots(dof, 1)
-    for i in range(dof):
-        axs4[i].plot(Time, cond_meanTraj[:, i], '--', label="demo")
-        axs4[i].set_ylabel('q'+str(i))
-        axs4[i].set_xlabel('time')
-        axs4[i].fill_between(Time, cond_meanTraj[:, i] - cond_stdTraj[:, i], cond_meanTraj[:, i] + cond_stdTraj[:, i], 
-                 color='b', alpha=0.2, label="Std Dev")
+    # fig4, axs4 = plt.subplots(dof, 1)
+    # for i in range(dof):
+    #     axs4[i].plot(Time, cond_meanTraj[:, i], '--', label="demo")
+    #     axs4[i].set_ylabel('q'+str(i))
+    #     axs4[i].set_xlabel('time')
+    #     axs4[i].fill_between(Time, cond_meanTraj[:, i] - cond_stdTraj[:, i], cond_meanTraj[:, i] + cond_stdTraj[:, i], 
+    #              color='b', alpha=0.2, label="Std Dev")
     
-    axs4[0].set_title('Mean conditioned Trajectories')
+    # axs4[0].set_title('Mean conditioned Trajectories')
     
 
 
