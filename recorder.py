@@ -31,8 +31,8 @@ recordings = [['Time', 'pos1', 'pos2', 'pos3', 'pos4', 'pos5', 'pos6', 'pos7']]
 
 
 def calc_torque(leader_state, follower_state, 
-                K_p = 0.1 * np.array([600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0], dtype=np.float64), 
-                K_d = 0.1 * np.array([50.0, 70.0, 50.0, 70.0, 30.0, 25.0, 15.0], dtype=np.float64)):
+                K_p = 0.07 * np.array([600.0, 800.0, 600.0, 650.0, 250.0, 150.0, 50.0], dtype=np.float64), 
+                K_d = 0.07 * np.array([50.0, 70.0, 50.0, 70.0, 30.0, 25.0, 15.0], dtype=np.float64)):
 
     torques = [0, 0, 0, 0, 0, 0, 0]
     for i in range(7):

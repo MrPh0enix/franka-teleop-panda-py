@@ -12,16 +12,16 @@ def euclidean_distance(x, y):
 # Parameters
 basis = 8
 dof= 7
-Nd = 12
+Nd = 10
 trajectoriesList = []
 timeList = []
 
 '''     Import Data from demonstrations    '''
 for demo in range(1, Nd+1):
     # Load Franka data for the demonstration
-    joints_raw, times_raw= Full_ProMP.Franka_data2('STRAIGHT_LINE_DEMOS/', demo)
+    joints_raw, times_raw= Full_ProMP.Franka_data2('NEW_DEMOS/', demo)
     # Reduce data to 100 samples
-    indices = np.linspace(0, len(joints_raw)-1, 100, dtype = int)
+    indices = np.linspace(0, len(joints_raw)-1, 60, dtype = int)
     joints_raw = np.asarray([joints_raw[i] for i in indices])
     times_raw = np.asarray([times_raw[i] for i in indices])
     # Append data to lists
@@ -57,6 +57,12 @@ meanTraj, covTraj = ProMP_trained.trajectory_mean_cov(Time)
 meanTraj, stdTraj = ProMP_trained.trajectory_mean_std(Time)
 
 
+# condition_pos = [0.8632710863534817, 0.2635637967515765, -0.9615780671185145, -1.937763639918545, 0.24814595905939738, 2.2066593839592374, 0.586055133572883]
+# condition_var = [0.17643179, 0.25017093, 0.28268008, 0.04898373, 0.35696326, 0.1773813, 0.18155298]
+# ProMP_conditioned = ProMP_trained.jointSpaceConditioning(2, condition_pos, condition_var)
+# cond_meanTraj, cond_stdTraj = ProMP_conditioned.trajectory_mean_std(Time)
+
+
 
 
 def DtW(real_time_joint_angles):
@@ -85,21 +91,45 @@ def DtW(real_time_joint_angles):
     return desired_joint_positions, current_stdDev, corresponding_iteration
 
 
+# def euclidean_dist_pos(real_time_joint_angles):
+
+#     corresponding_iterations = []
+    
+#     for measurement in real_time_joint_angles:
+#         min_distance = float('inf')  # Initialize the minimum distance to a large value
+#         corresponding_iteration = None
+        
+#         for i, joint_angles in enumerate(meanTraj):
+#             distance = np.sqrt(np.sum((np.array(joint_angles) - np.array(measurement)) ** 2))
+#             if distance < min_distance:
+#                 min_distance = distance
+#                 corresponding_iteration = i
+        
+#         corresponding_iterations.append(corresponding_iteration)
+
+    
+#     # Fetch the desired trajectory at corresponding iterations
+#     desired_joint_positions = meanTraj[corresponding_iterations]
+#     current_stdDev = stdTraj[corresponding_iteration]
+#     desired_joint_positions = np.squeeze(desired_joint_positions)
+    
+#     return desired_joint_positions, current_stdDev, corresponding_iteration
+
+
 def euclidean_dist_pos(real_time_joint_angles):
 
     corresponding_iterations = []
     
-    for measurement in real_time_joint_angles:
-        min_distance = float('inf')  # Initialize the minimum distance to a large value
-        corresponding_iteration = None
-        
-        for i, joint_angles in enumerate(meanTraj):
-            distance = np.sqrt(np.sum((np.array(joint_angles) - np.array(measurement)) ** 2))
-            if distance < min_distance:
-                min_distance = distance
-                corresponding_iteration = i
-        
-        corresponding_iterations.append(corresponding_iteration)
+    min_distance = float('inf')  # Initialize the minimum distance to a large value
+    corresponding_iteration = None
+    
+    for i, joint_angles in enumerate(meanTraj):
+        distance = np.sqrt(np.sum((np.array(joint_angles) - np.array(real_time_joint_angles)) ** 2))
+        if distance < min_distance:
+            min_distance = distance
+            corresponding_iteration = i
+    
+    corresponding_iterations.append(corresponding_iteration)
 
     
     # Fetch the desired trajectory at corresponding iterations

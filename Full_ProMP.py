@@ -191,7 +191,6 @@ class ProMp:
         return trajectory_mean, stdTrajectory
 
     # Joint Conditioning
-
     def jointSpaceConditioning(self, time, desired_position, desired_var):
 
         step = (np.linspace(0, 1, 1)) 
@@ -295,7 +294,7 @@ if __name__ == "__main__":
     # Parameters
     basis = 10
     dof = 7
-    Nd = 12
+    Nd = 10
     trajectoriesList = []
     timeList = []
     '''y_offset = 0.15
@@ -305,10 +304,10 @@ if __name__ == "__main__":
     fig, axs = plt.subplots(dof, 1)
     for demo in range(1,Nd+1):
         # joints_raw, poses_raw, times_raw = Franka_data('/home/pszkb3/DEMONSTRATIONS/', demo)
-        joints_raw, times_raw = Franka_data2('STRAIGHT_LINE_DEMOS/', demo)
+        joints_raw, times_raw = Franka_data2('NEW_DEMOS/', demo)
         
         # Reduce data to 100 samples
-        indices = np.linspace(0, len(joints_raw)-1, 100, dtype = int)
+        indices = np.linspace(0, len(joints_raw)-1, 60, dtype = int)
         joints_raw = np.asarray([joints_raw[i] for i in indices])
         times_raw = np.asarray([times_raw[i] for i in indices])
         
@@ -321,7 +320,6 @@ if __name__ == "__main__":
             # axs[i].legend(("ProMP Trajctory", "Demonstration"))
             # axs[i].set_legend(("ProMP Trajctory", "Demonstration"))
     n_data = (len(joints_raw))
-    
     Time = np.linspace(0, 1, n_data)
 
     Trajectory = np.zeros((n_data  , dof))
@@ -349,13 +347,14 @@ if __name__ == "__main__":
     # Get mean and standard deviation of the smoothed trajectory
     meanTraj, stdTraj = proMPSmooth.trajectory_mean_std(Time)
     
+
     
-    # for i in range(dof):
-    #     axs[i].plot(Time, trajectories[:, i, :], '--', label="demo")
-    #     #axs[i].plot(T, joints_raw[:, i], 'r')
-    #     axs[i].set_ylabel('q'+str(i))
-    #     axs[i].set_xlabel('time')
-    #     axs[i].legend(("ProMP Trajctory", "Demonstration"))
+    for i in range(dof):
+        axs[i].plot(Time, trajectories[:, i, :], '--', label="demo")
+        #axs[i].plot(T, joints_raw[:, i], 'r')
+        axs[i].set_ylabel('q'+str(i))
+        axs[i].set_xlabel('time')
+        axs[i].legend(("ProMP Trajctory", "Demonstration"))
 
     # axs[0].set_title(' Trajectory Sampling')
     
@@ -387,5 +386,4 @@ if __name__ == "__main__":
     #     axs3[i].plot(Time, Reconstrucetd_Trajectory[:, i])
     #     axs3[i].legend(("Inital Trajectory", "ProMP Trajctory"))
 
-    plt.subplots_adjust(hspace=0.7)
     plt.show()

@@ -17,7 +17,9 @@ leader_robot = panda_py.Panda(config["leader_robot_ip"])
 trqController = panda_py.controllers.AppliedTorque()
 leader_robot.start_controller(trqController)
 
-zerotau = np.array([0, 0,0,2.1,0,0,0])
+zerotau = np.array([0, 0,0,0,0,0,0])
+
+
 #Max tested values
 #1.5
 #1.2
@@ -31,4 +33,7 @@ zerotau = np.array([0, 0,0,2.1,0,0,0])
 while True:
 
     trqController.set_control(zerotau)
+    robot_state = leader_robot.get_state()
+    print(robot_state.q)
+
     time.sleep(1/frequency)
