@@ -294,7 +294,7 @@ if __name__ == "__main__":
     # Parameters
     basis = 10
     dof = 7
-    Nd = 10
+    Nd = 28
     trajectoriesList = []
     timeList = []
     '''y_offset = 0.15
@@ -307,7 +307,7 @@ if __name__ == "__main__":
         joints_raw, times_raw = Franka_data2('NEW_DEMOS/', demo)
         
         # Reduce data to 100 samples
-        indices = np.linspace(0, len(joints_raw)-1, 60, dtype = int)
+        indices = np.linspace(0, len(joints_raw)-1, 200, dtype = int)
         joints_raw = np.asarray([joints_raw[i] for i in indices])
         times_raw = np.asarray([times_raw[i] for i in indices])
         

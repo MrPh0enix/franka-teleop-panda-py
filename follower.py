@@ -16,7 +16,7 @@ with open('teleop_params.config', 'r') as teleop_params:
 follower_robot = panda_py.Panda(config['follower_robot_ip'])
 init_pos = adaptive_positioning.get_init_pos()
 follower_robot.move_to_joint_position(init_pos)
-#Fix for cartesian reflex error. only try this on the leader side as it increases the collision threshold on the robot.
+#Fix for cartesian reflex error.
 follower_robot_settings = follower_robot.get_robot()
 follower_robot_settings.set_collision_behavior(lower_torque_thresholds_acceleration = [x / 2 for x in [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]],
                                              upper_torque_thresholds_acceleration = [x * 2 for x in[20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]],

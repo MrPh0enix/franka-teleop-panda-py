@@ -12,7 +12,7 @@ def euclidean_distance(x, y):
 # Parameters
 basis = 8
 dof= 7
-Nd = 10
+Nd = 30
 trajectoriesList = []
 timeList = []
 
@@ -21,7 +21,7 @@ for demo in range(1, Nd+1):
     # Load Franka data for the demonstration
     joints_raw, times_raw= Full_ProMP.Franka_data2('NEW_DEMOS/', demo)
     # Reduce data to 100 samples
-    indices = np.linspace(0, len(joints_raw)-1, 60, dtype = int)
+    indices = np.linspace(0, len(joints_raw)-1, 200, dtype = int)
     joints_raw = np.asarray([joints_raw[i] for i in indices])
     times_raw = np.asarray([times_raw[i] for i in indices])
     # Append data to lists

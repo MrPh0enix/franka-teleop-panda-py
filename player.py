@@ -16,7 +16,7 @@ leader_robot = panda_py.Panda(config["leader_robot_ip"])
 # follower_robot = panda_py.Panda(config['follower_robot_ip'])
 
 
-with open("mean.csv", "r") as file:
+with open("output3.csv", "r") as file:
     reader = csv.reader(file)
     rows = [row for row in reader]
     first_pos = rows[1][1:]
