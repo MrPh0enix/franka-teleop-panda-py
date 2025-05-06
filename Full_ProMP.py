@@ -292,9 +292,9 @@ class Learner():
 
 if __name__ == "__main__":
     # Parameters
-    basis = 10
+    basis = 8
     dof = 7
-    Nd = 28
+    Nd = 40
     trajectoriesList = []
     timeList = []
     '''y_offset = 0.15

@@ -15,6 +15,7 @@ with open('teleop_params.config', 'r') as teleop_params:
 
 follower_robot = panda_py.Panda(config['follower_robot_ip'])
 init_pos = adaptive_positioning.get_init_pos()
+init_pos = [-1.0060493894389095, 0.6949886015005279, 0.5347175111877213, -1.2350292117302877, -0.3137677928275533, 2.1130110645824005, 0.19305563522999486] ############ Temp init pose for user test. Remove after ###########
 follower_robot.move_to_joint_position(init_pos)
 #Fix for cartesian reflex error.
 follower_robot_settings = follower_robot.get_robot()
@@ -51,8 +52,8 @@ def calc_torque(leader_data, follower_data):
     torques = [0, 0, 0, 0, 0, 0, 0]
 
     # PD gains
-    pgain = 0.07 * np.array([600.0, 800.0, 600.0, 650.0, 250.0, 150.0, 50.0], dtype=np.float64)
-    dgain = 0.07 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
+    pgain = 0.08 * np.array([600.0, 800.0, 600.0, 650.0, 250.0, 150.0, 50.0], dtype=np.float64)
+    dgain = 0.08 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
 
     for i in range(7):
         torques[i] = pgain[i] * (leader_data[i] - follower_data[i]) - dgain[i] * (follower_data[i+7])

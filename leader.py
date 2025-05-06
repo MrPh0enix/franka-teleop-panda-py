@@ -18,6 +18,7 @@ with open('teleop_params.config', 'r') as teleop_params:
 
 leader_robot = panda_py.Panda(config["leader_robot_ip"])
 init_pos = adaptive_positioning.get_init_pos()
+init_pos = [-1.0060493894389095, 0.6949886015005279, 0.5347175111877213, -1.2350292117302877, -0.3137677928275533, 2.1130110645824005, 0.19305563522999486] ############ Temp init pose for user test. Remove after ###########
 leader_robot.move_to_joint_position(init_pos)
 #Fix for cartesian reflex error.
 leader_robot_settings = leader_robot.get_robot()
@@ -108,7 +109,7 @@ def calc_adaptive_vfx_trq(leader_robot_state, follower_data):
     # PD gains
     pgain = 0.1 * np.array([600.0, 800.0, 600.0, 650.0, 250.0, 150.0, 50.0], dtype=np.float64) #default to 0.06 after test
     dgain = 0.1 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
-    again = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float64)
+    again = np.array([2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0], dtype=np.float64)
 
     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
     desired_pose, stdDev, itr = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
