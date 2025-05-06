@@ -15,8 +15,10 @@ current_demo = len(os.listdir('NEW_DEMOS'))+1
 
 leader_robot = panda_py.Panda(config["leader_robot_ip"])
 follower_robot = panda_py.Panda(config['follower_robot_ip'])
-follower_state = follower_robot.get_state()
-leader_robot.move_to_joint_position(follower_state.q)
+init_state = [-1.0060493894389095, 0.6949886015005279, 0.5347175111877213, -1.2350292117302877, -0.3137677928275533, 2.1130110645824005, 0.19305563522999486]
+# follower_state = follower_robot.get_state()
+leader_robot.move_to_joint_position(init_state)
+follower_robot.move_to_joint_position(init_state)
 leader_robot.teaching_mode(active = True)
 folTrqController = panda_py.controllers.AppliedTorque()
 follower_robot.start_controller(folTrqController)
@@ -40,9 +42,12 @@ follower_robot_settings.set_collision_behavior(lower_torque_thresholds_accelerat
                                              lower_force_thresholds_nominal = [x / 10 for x in [20.0, 20.0, 20.0, 25.0, 25.0, 25.0]],
                                              upper_force_thresholds_nominal = [x * 10 for x in[20.0, 20.0, 20.0, 25.0, 25.0, 25.0]])
 
+
+
+
 start_time = time.time()
 
-frequency = 10 #frequency of recording
+frequency = 30 #frequency of recording
 time_delay = 1/frequency
 
 recordings = [['Time', 'pos1', 'pos2', 'pos3', 'pos4', 'pos5', 'pos6', 'pos7']]
@@ -50,8 +55,8 @@ recordings = [['Time', 'pos1', 'pos2', 'pos3', 'pos4', 'pos5', 'pos6', 'pos7']]
 
 
 def calc_torque(leader_state, follower_state, 
-                K_p = 0.07 * np.array([600.0, 800.0, 600.0, 650.0, 250.0, 150.0, 50.0], dtype=np.float64), 
-                K_d = 0.07 * np.array([50.0, 70.0, 50.0, 70.0, 30.0, 25.0, 15.0], dtype=np.float64)):
+                K_p = 0.08 * np.array([600.0, 800.0, 600.0, 650.0, 250.0, 150.0, 50.0], dtype=np.float64), 
+                K_d = 0.08 * np.array([50.0, 70.0, 50.0, 70.0, 30.0, 25.0, 15.0], dtype=np.float64)):
 
     torques = [0, 0, 0, 0, 0, 0, 0]
     for i in range(7):
