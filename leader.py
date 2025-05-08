@@ -53,10 +53,11 @@ leader_robot.start_controller(trqController)
 
 
 #global variables and function for logging
-traj_data = [['Time_step', 'act_pos1', 'act_pos2', 'act_pos3', 'act_pos4', 'act_pos5', 'act_pos6', 'act_pos7', 
+traj_data = [['Time', 'Time_step', 'act_pos1', 'act_pos2', 'act_pos3', 'act_pos4', 'act_pos5', 'act_pos6', 'act_pos7', 
             'des_pos1', 'des_pos2', 'des_pos3', 'des_pos4', 'des_pos5', 'des_pos6', 'des_pos7', 
             'trq1', 'trq2', 'trq3', 'trq4', 'trq5', 'trq6', 'trq7', 'mode']]
 recording = False
+startTime = time.time()
 
 def save_recordings():
     global traj_data
@@ -65,7 +66,7 @@ def save_recordings():
         writer = csv.writer(file)
         writer.writerows(traj_data)  
     os.chmod(f'RECORDINGS/recording{recording_no}.csv', 0o644)
-    traj_data = [['Time_step', 'act_pos1', 'act_pos2', 'act_pos3', 'act_pos4', 'act_pos5', 'act_pos6', 'act_pos7', 
+    traj_data = [['Time', 'Time_step', 'act_pos1', 'act_pos2', 'act_pos3', 'act_pos4', 'act_pos5', 'act_pos6', 'act_pos7', 
                 'des_pos1', 'des_pos2', 'des_pos3', 'des_pos4', 'des_pos5', 'des_pos6', 'des_pos7',
                 'trq1', 'trq2', 'trq3', 'trq4', 'trq5', 'trq6', 'trq7', 'mode']]
 
@@ -92,7 +93,7 @@ def calc_static_vfx_trq(leader_robot_state, follower_data):
 
 
     if recording:
-        current_state = [itr] + leader_robot_state.q + [x for x in desired_pose.flatten()] + [x for x in tau_desired.flatten()] + [x for x in tau_desired.flatten()] + ['static_guidance']
+        current_state = [time.time()-startTime] + [itr] + leader_robot_state.q + [x for x in desired_pose.flatten()] + [x for x in tau_desired.flatten()] + ['static_guidance']
         traj_data.append(current_state)
 
     # # clippig for a strict force
@@ -109,7 +110,7 @@ def calc_adaptive_vfx_trq(leader_robot_state, follower_data):
     # PD gains
     pgain = 0.1 * np.array([600.0, 800.0, 600.0, 650.0, 250.0, 150.0, 50.0], dtype=np.float64) #default to 0.06 after test
     dgain = 0.1 * np.array([50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0], dtype=np.float64)
-    again = np.array([2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0], dtype=np.float64)
+    again = np.array([5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0], dtype=np.float64)
 
     current_pose = np.array([leader_robot_state.q]) # could change to follower pose
     desired_pose, stdDev, itr = adaptive_positioning.euclidean_dist_pos(current_pose) # we only need the desired pose
@@ -124,7 +125,7 @@ def calc_adaptive_vfx_trq(leader_robot_state, follower_data):
     tau_desired = tau_desired.reshape(-1)
 
     if recording:
-        current_state = [itr] + leader_robot_state.q + [x for x in desired_pose.flatten()] + [x for x in tau_desired.flatten()] + ['adaptive_guidance']
+        current_state = [time.time()-startTime] + [itr] + leader_robot_state.q + [x for x in desired_pose.flatten()] + [x for x in tau_desired.flatten()] + ['adaptive_guidance']
         traj_data.append(current_state)
 
     return tau_desired
@@ -133,6 +134,11 @@ def calc_adaptive_vfx_trq(leader_robot_state, follower_data):
 def no_feedback(leader_robot_state, follower_data):
     ''' unilateral teleop: no force on the leader '''
     tau_desired = np.zeros((7,))
+
+    if recording:
+        current_state = [time.time()-startTime] + [0] + leader_robot_state.q + [0,0,0,0,0,0,0] + [0,0,0,0,0,0,0] + ['no_guidance']
+        traj_data.append(current_state)
+
     return tau_desired
 
 
@@ -269,6 +275,7 @@ with leader_robot.create_context(frequency=frequency) as ctx1:
         elif keyboard.is_pressed('r'):
             if not recording:
                 recording = True
+                startTime = time.time()
                 print('\nRecording functionality activated')
             else:
                 recording = False
