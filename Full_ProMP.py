@@ -294,7 +294,7 @@ if __name__ == "__main__":
     # Parameters
     basis = 8
     dof = 7
-    Nd = 40
+    Nd = 60
     trajectoriesList = []
     timeList = []
     '''y_offset = 0.15

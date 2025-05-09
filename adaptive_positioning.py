@@ -12,7 +12,7 @@ def euclidean_distance(x, y):
 # Parameters
 basis = 8
 dof= 7
-Nd = 30
+Nd = 60
 trajectoriesList = []
 timeList = []
 
