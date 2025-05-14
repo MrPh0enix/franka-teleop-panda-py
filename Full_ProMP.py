@@ -363,7 +363,7 @@ if __name__ == "__main__":
     for i in range(dof):
         axs2[i].plot(Time, meanTraj[:, i], '--', label="mean")
         axs2[i].set_title(f'Joint {i}', loc='left', fontsize=11)
-        axs2[i].plot(Time, trajectories[:, i, :], '--', label="sample trajectory")
+        # axs2[i].plot(Time, trajectories[:, i, :], '--', label="sample trajectory")
         # axs2[i].set_ylabel('q'+str(i))
         # axs2[i].set_xlabel('time')
         axs2[i].fill_between(Time, meanTraj[:, i] - stdTraj[:, i], meanTraj[:, i] + stdTraj[:, i], 
@@ -385,5 +385,6 @@ if __name__ == "__main__":
     #     axs3[i].plot(Time, Trajectory[:, i])
     #     axs3[i].plot(Time, Reconstrucetd_Trajectory[:, i])
     #     axs3[i].legend(("Inital Trajectory", "ProMP Trajctory"))
-
+    
+    plt.subplots_adjust(hspace=0.7)
     plt.show()

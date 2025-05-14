@@ -124,7 +124,7 @@ def euclidean_dist_pos(real_time_joint_angles):
     corresponding_iteration = None
     
     for i, joint_angles in enumerate(meanTraj):
-        distance = np.sqrt(np.sum((np.array(joint_angles) - np.array(real_time_joint_angles)) ** 2))
+        distance = np.sum((np.array(joint_angles) - np.array(real_time_joint_angles)) ** 2)
         if distance < min_distance:
             min_distance = distance
             corresponding_iteration = i
