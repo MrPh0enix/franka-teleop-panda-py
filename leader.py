@@ -177,6 +177,24 @@ def bilateral_teleop_adaptive_guidance(leader_robot_state, follower_data):
     return torques
 
 
+def bilateral_teleop_static_guidance(leader_robot_state, follower_data):
+    ''' combines bilateral teleop with adaptive guidance according to a condition
+    This will enable us to detect collisions'''
+    threshold = 0.3
+    leader_pos = leader_robot_state.q
+    follower_pos = follower_data[:7]
+    pose_diff = np.array(follower_pos) - np.array(leader_pos)
+    
+    if any(abs(pose_diff) > threshold):
+        # Use bilateral teleop
+        torques = bilateral_teleop(leader_robot_state, follower_data)
+    else:
+        # Use adaptive guidance
+        torques = calc_static_vfx_trq(leader_robot_state, follower_data)
+    
+    return torques
+
+
 
 # def calc_static_vfx_trq_onlyRecording(leader_robot_state, follower_data):
 #     ''' adaptive guidance: adaptive guidance forces on the leader '''
@@ -215,6 +233,7 @@ modes = {
     'static_guidance' : calc_static_vfx_trq,
     'bilateral_teleop' : bilateral_teleop,
     'adaptive + bilateral teleop combined' : bilateral_teleop_adaptive_guidance,
+    'static + bilateral teleop combined' : bilateral_teleop_static_guidance,
     # 'trq_record': calc_static_vfx_trq_onlyRecording,
 }
 
@@ -225,6 +244,7 @@ def print_instructions():
     print("(2) Adaptive guidance mode")
     print("(3) Bilateral teleoperation mode")
     print("(4) Bilateral teleop + Adaptive guidance mode")
+    print("(5) Bilateral teleop + Static guidance mode")
     print("(r) Activate\Deactivate recording functionality")
     print("(q) Exit")
 
@@ -267,10 +287,15 @@ with leader_robot.create_context(frequency=frequency) as ctx1:
             print('\nBilateral teleop + Adaptive guidance activated')
             while keyboard.is_pressed('4'): # prevent multiple presses
                 time.sleep(0.05) 
-        # elif keyboard.is_pressed('5'):
+        elif keyboard.is_pressed('5'):
+            trq_calc = modes['static + bilateral teleop combined']
+            print('\nBilateral teleop + Static guidance activated')
+            while keyboard.is_pressed('5'): # prevent multiple presses
+                time.sleep(0.05) 
+        # elif keyboard.is_pressed('6'):
         #     trq_calc = modes['trq_record']
         #     print('\nTrq recording mode')
-        #     while keyboard.is_pressed('5'): # prevent multiple presses
+        #     while keyboard.is_pressed('6'): # prevent multiple presses
         #         time.sleep(0.05)       
         elif keyboard.is_pressed('r'):
             if not recording:

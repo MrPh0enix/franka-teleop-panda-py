@@ -148,9 +148,10 @@ def euclidean_dist_pos2(real_time_joint_angles):
     # for measurement in real_time_joint_angles:
     min_distance = float('inf')  # Initialize the minimum distance to a large value
     corresponding_iteration = None
+    joint_weights = np.array([7,6,5,4,3,2,1]) # weights to prioritize the joints
     
     for i, joint_angles in enumerate(meanTraj):
-        distance = np.sqrt(np.sum((np.array(joint_angles) - np.array(real_time_joint_angles)) ** 2))
+        distance = np.sum(joint_weights * (np.array(joint_angles) - np.array(real_time_joint_angles)) ** 2)
         if distance < min_distance:
             min_distance = distance
             corresponding_iteration = i

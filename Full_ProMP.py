@@ -347,6 +347,12 @@ if __name__ == "__main__":
     # Get mean and standard deviation of the smoothed trajectory
     meanTraj, stdTraj = proMPSmooth.trajectory_mean_std(Time)
     
+    
+    # Writing to CSV
+    with open('meanTraj.csv', mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(meanTraj)
+        
 
     
     for i in range(dof):
